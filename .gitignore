@@ -1,0 +1,10 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Datasets are large binary data — keep them out of git.
+# Track scripts/ and datasets/README.md; ignore the image/label payloads.
+datasets/*
+!datasets/README.md
+*.zip
