@@ -1,7 +1,14 @@
 # Python
 .venv/
+.venv-train/
 __pycache__/
 *.pyc
+
+# Training artifacts (gitignore does not allow inline comments)
+# weights/ = downloaded pretrained yolov3.weights (237 MB)
+# runs/    = checkpoints, SavedModels, OpenVINO IR, logs
+weights/
+runs/
 
 # Datasets are large binary data — keep them out of git.
 # Track scripts/ and datasets/README.md; ignore the image/label payloads.
