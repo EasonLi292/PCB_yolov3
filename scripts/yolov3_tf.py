@@ -248,7 +248,10 @@ def load_darknet_weights(model, weights_file):
                     batch_norm = sub.layers[i + 1]
                 filters = layer.filters
                 size = layer.kernel_size[0]
-                in_dim = layer.input.shape[-1]   # Keras 3 API
+                try:
+                    in_dim = layer.input.shape[-1]      # Keras 3
+                except AttributeError:
+                    in_dim = layer.input_shape[-1]      # Keras 2 fallback
                 if batch_norm is None:
                     conv_bias = np.fromfile(wf, dtype=np.float32, count=filters)
                 else:
