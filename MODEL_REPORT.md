@@ -47,11 +47,13 @@ larger than PCB defects. Both are addressable (more training; k-means anchors).
 
 ### Sample predictions
 
-Green = **ground truth** (correct locations). Red = **model prediction** (with class +
-confidence). A green box with no red box nearby is a missed defect; a red box with no
-green is a false positive.
+Each sample is a **pair of panels**: the **left** panel shows the **ground truth** (green
+boxes = correct defect locations); the **right** panel shows the **model's prediction**
+(red boxes + class/confidence) on the same image. Compare left vs right — a green box on
+the left with no matching red box on the right is a **missed defect**; a red box with no
+green counterpart is a **false positive**.
 
-![Sample predictions: green = ground truth, red = model prediction](docs/eval_samples.jpg)
+![Sample predictions — left: ground truth (green), right: model prediction (red)](docs/eval_samples.jpg)
 
 Regenerate with:
 ```bash
