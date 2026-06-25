@@ -13,6 +13,47 @@ python3.12 -m venv .venv-train
 ./.venv-train/bin/pip install "tensorflow==2.21.0" "openvino>=2025.0" opencv-python-headless numpy
 ```
 
+## Continue on your own NVIDIA GPU (e.g. H100) — Drive as sync hub
+
+Google Drive is the shared state across machines (Colab / Mac / GPU box): the dataset zip
+and the latest `*_yolov3_best.weights.h5` live there, so any machine pulls them, trains,
+and pushes the new checkpoint back. The H100 has no Colab timeout, so a full run
+(phase 1 + 2) finishes in well under an hour at `--batch 32`.
+
+```bash
+# 1. code
+git clone https://github.com/EasonLi292/PCB_yolov3.git && cd PCB_yolov3
+
+# 2. environment (GPU TF bundles CUDA; just needs a recent NVIDIA driver)
+python3.12 -m venv .venv-train
+./.venv-train/bin/pip install -r requirements-train.txt
+./.venv-train/bin/python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
+
+# 3. pull dataset + checkpoint from Drive  (rclone = headless; or scp from your Mac; or browser download)
+#    one-time:  rclone config   (name the remote 'gdrive')
+rclone copy gdrive:unified_pku_yolo_gray640.zip .
+rclone copy gdrive:unified_pku_yolo_gray640_yolov3_best.weights.h5 runs/unified_pku_yolo_gray640/
+mkdir -p datasets && unzip -q unified_pku_yolo_gray640.zip -d datasets
+
+# 4. resume training (frozen continuation, then unfreeze) — H100 fits a big batch
+./.venv-train/bin/python scripts/train_yolov3.py --data datasets/unified_pku_yolo_gray640 \
+    --resume runs/unified_pku_yolo_gray640/unified_pku_yolo_gray640_yolov3_best.weights.h5 \
+    --epochs 30 --batch 32
+./.venv-train/bin/python scripts/train_yolov3.py --data datasets/unified_pku_yolo_gray640 \
+    --resume runs/unified_pku_yolo_gray640/yolov3_best.weights.h5 --unfreeze --lr 1e-4 --epochs 20 --batch 32
+
+# 5. export FPGA IR + push the trained checkpoint back to Drive
+./.venv-train/bin/python scripts/export_fpga.py \
+    --weights runs/unified_pku_yolo_gray640/yolov3_best.weights.h5 \
+    --out runs/unified_pku_yolo_gray640/openvino_fpga --nc 6
+rclone copy runs/unified_pku_yolo_gray640/yolov3_best.weights.h5 gdrive:
+```
+
+Alternatives to rclone for step 3: `scp` the files directly from your Mac
+(`~/Downloads/PCB_yolov3/datasets/unified_pku_yolo_gray640` + the `.h5`), `gdown` for a
+shared Drive link, or just regenerate the dataset on the box with the build/preprocess
+scripts (needs the Kaggle/Roboflow creds again — slower).
+
 ## Stage 1–2 — train with transfer learning ([scripts/train_yolov3.py](scripts/train_yolov3.py))
 
 YOLOv3 = Darknet-53 backbone + 3-scale FPN heads. We:

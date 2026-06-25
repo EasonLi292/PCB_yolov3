@@ -1,0 +1,12 @@
+# Training + export environment for an NVIDIA GPU box (e.g. H100), Python 3.10–3.12.
+#   python3.12 -m venv .venv-train
+#   ./.venv-train/bin/pip install -r requirements-train.txt
+#
+# tensorflow[and-cuda] bundles the CUDA 12 runtime libs, so you only need a recent
+# NVIDIA driver on the host (no manual CUDA/cuDNN install). H100 (Hopper, sm_90) is
+# supported by TF 2.21.
+tensorflow[and-cuda]==2.21.0
+openvino==2026.2.1
+nncf==3.2.0
+opencv-python-headless
+tensorboard==2.20.0
