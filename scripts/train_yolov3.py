@@ -108,10 +108,17 @@ def main():
     if args.download_weights:
         wpath = maybe_download_weights(wpath)
 
-    model = build_transfer_model(args.size, nc, wpath)
     if args.resume and Path(args.resume).exists():
+        # Continuing from our own trained weights -> skip the COCO transfer entirely
+        # (it would just be overwritten). Build a plain model and load our checkpoint.
+        model = YoloV3(size=args.size, classes=nc, training=True)
         model.load_weights(args.resume)
-        print(f"Resumed weights from {args.resume}")
+        print(f"Resumed weights from {args.resume} (skipped COCO transfer)")
+        freeze_all(model.get_layer("yolo_darknet"), frozen=True)  # default; --unfreeze flips it
+    else:
+        # Fresh transfer learning: COCO backbone + necks, new heads.
+        model = build_transfer_model(args.size, nc, wpath)
+
     if args.unfreeze:
         freeze_all(model.get_layer("yolo_darknet"), frozen=False)
         print("Backbone UNFROZEN (full fine-tune).")
