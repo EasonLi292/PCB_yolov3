@@ -53,7 +53,12 @@ boxes = correct defect locations); the **right** panel shows the **model's predi
 the left with no matching red box on the right is a **missed defect**; a red box with no
 green counterpart is a **false positive**.
 
-![Sample predictions — left: ground truth (green), right: model prediction (red)](docs/eval_samples.jpg)
+All samples are from the **held-out test set** (boards never seen in training, in any
+augmentation), and are **balanced across the three merged source datasets** — each panel's
+title bar is tagged `[HRIPCB]`, `[norbertelter]`, or `[Roboflow]` so you can see the model
+generalizing across sources (the Roboflow boards even look visually distinct).
+
+![Sample predictions — left: ground truth (green), right: model prediction (red); balanced across sources](docs/eval_samples.jpg)
 
 Regenerate with:
 ```bash

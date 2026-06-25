@@ -11,6 +11,7 @@ predictions (RED) on the same image — so you compare "correct" vs "guessed" si
         --out docs/eval_samples.jpg --n 15
 """
 import argparse
+from collections import deque
 from pathlib import Path
 import numpy as np
 import cv2
@@ -25,6 +26,16 @@ from yolo_postprocess import decode_and_nms
 GREEN = (0, 200, 0)
 RED = (0, 0, 255)
 FONT = cv2.FONT_HERSHEY_SIMPLEX
+
+# Source of each image, by filename prefix (the unified PKU set merges 3 datasets).
+SOURCES = [("hr_", "HRIPCB"), ("nb_", "norbertelter"), ("rf_", "Roboflow")]
+
+
+def source_of(stem):
+    for pref, name in SOURCES:
+        if stem.startswith(pref):
+            return name
+    return "other"
 
 
 def caption(img, text, color, h=26):
@@ -63,19 +74,27 @@ def main():
 
     imgs = sorted(p for p in img_dir.iterdir()
                   if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp"})
-    imgs = imgs[:: max(1, len(imgs) // (args.n * 6))]   # spread across the set
 
-    pairs = []
-    for img_path in imgs:
+    # Group by source dataset and spread within each, so the montage balances across
+    # all three merged sources instead of skewing to whichever sorts first.
+    by_src = {}
+    for p in imgs:
+        by_src.setdefault(source_of(p.stem), []).append(p)
+    queues = {}
+    for k, v in by_src.items():
+        queues[k] = deque(v[:: max(1, len(v) // (args.n * 2))])
+    order = [name for _, name in SOURCES if name in queues] + \
+            [k for k in queues if k not in {n for _, n in SOURCES}]
+
+    def build_pair(img_path):
         gts = load_gt(lbl_dir / f"{img_path.stem}.txt", 1, 1)   # normalized coords
         if not gts:
-            continue
+            return None
         inp, vis, (h0, w0) = preprocess(img_path, args.size)
         dets = decode_and_nms([compiled(inp)[o] for o in compiled.outputs],
                               w0, h0, args.score, args.iou) if raw_ir else []
         if not dets:                       # prefer images where the model fired
-            continue
-
+            return None
         gt_img, pred_img = vis.copy(), vis.copy()
         for c, gx1, gy1, gx2, gy2 in gts:
             cv2.rectangle(gt_img, (int(gx1 * w0), int(gy1 * h0)),
@@ -84,15 +103,28 @@ def main():
             cv2.rectangle(pred_img, (x1, y1), (x2, y2), RED, args.thick)
             cv2.putText(pred_img, f"{classes[c]} {s:.2f}", (x1, max(14, y1 - 4)),
                         FONT, 0.5, RED, 2)
-
         cell = args.cell
         left = caption(cv2.resize(gt_img, (cell, cell)), f"GROUND TRUTH ({len(gts)})", GREEN)
         right = caption(cv2.resize(pred_img, (cell, cell)), f"PREDICTION ({len(dets)})", RED)
         sep = np.full((left.shape[0], 6, 3), 20, np.uint8)
         pair = np.hstack([left, sep, right])
-        pair = np.vstack([name_bar(pair.shape[1], img_path.stem[:60]), pair])
-        pairs.append(pair)
-        if len(pairs) >= args.n:
+        return np.vstack([name_bar(pair.shape[1],
+                          f"[{source_of(img_path.stem)}]  {img_path.stem[:48]}"), pair])
+
+    # round-robin across sources until we have n pairs
+    pairs = []
+    while len(pairs) < args.n and any(queues[k] for k in order):
+        progressed = False
+        for k in order:
+            if not queues[k]:
+                continue
+            pair = build_pair(queues[k].popleft())
+            progressed = True
+            if pair is not None:
+                pairs.append(pair)
+                if len(pairs) >= args.n:
+                    break
+        if not progressed:
             break
 
     if not pairs:
