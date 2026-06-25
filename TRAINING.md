@@ -29,16 +29,15 @@ python3.12 -m venv .venv-train
 ./.venv-train/bin/pip install -r requirements-train.txt
 ./.venv-train/bin/python -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 
-# 3. pull dataset + checkpoint from Drive  (rclone = headless; or scp from your Mac; or browser download)
-#    one-time:  rclone config   (name the remote 'gdrive')
-rclone copy gdrive:unified_pku_yolo_gray640.zip .
-rclone copy gdrive:unified_pku_yolo_gray640_yolov3_best.weights.h5 runs/unified_pku_yolo_gray640/
+# 3. get the dataset (rclone from Drive, or scp from your Mac) + the COCO backbone weights
+rclone copy gdrive:unified_pku_yolo_gray640.zip .          # or: scp from your Mac
 mkdir -p datasets && unzip -q unified_pku_yolo_gray640.zip -d datasets
+mkdir -p weights && wget -q https://pjreddie.com/media/files/yolov3.weights -O weights/yolov3.weights
 
-# 4. resume training (frozen continuation, then unfreeze) — H100 fits a big batch
+# 4. train: phase 1 fresh from COCO (frozen), then phase 2 unfreeze. H100 fits a big batch.
+#    k-means anchors (scripts/anchors.json) + online augmentation are applied automatically.
 ./.venv-train/bin/python scripts/train_yolov3.py --data datasets/unified_pku_yolo_gray640 \
-    --resume runs/unified_pku_yolo_gray640/unified_pku_yolo_gray640_yolov3_best.weights.h5 \
-    --epochs 30 --batch 32
+    --weights weights/yolov3.weights --epochs 30 --batch 32
 ./.venv-train/bin/python scripts/train_yolov3.py --data datasets/unified_pku_yolo_gray640 \
     --resume runs/unified_pku_yolo_gray640/yolov3_best.weights.h5 --unfreeze --lr 1e-4 --epochs 20 --batch 32
 
