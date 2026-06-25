@@ -18,11 +18,12 @@ from tensorflow.keras.layers import (
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.losses import binary_crossentropy, sparse_categorical_crossentropy
 
-# Standard YOLOv3 anchors (normalized by 416 -> fraction of image side).
-yolo_anchors = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),
-                         (59, 119), (116, 90), (156, 198), (373, 326)],
-                        np.float32) / 416.0
-yolo_anchor_masks = np.array([[6, 7, 8], [3, 4, 5], [0, 1, 2]])
+# Anchors come from scripts/anchors.json (k-means) if present, else stock COCO anchors.
+import os as _os, sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+from anchors_config import load_anchors as _load_anchors
+yolo_anchors, _masks = _load_anchors()
+yolo_anchor_masks = np.array(_masks)
 
 
 # ----------------------------- model blocks -----------------------------

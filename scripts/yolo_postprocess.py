@@ -9,15 +9,16 @@ post-processing; the same logic goes next to the FPGA runtime.
 Each raw output has shape (1, gh, gw, num_anchors, 5 + num_classes):
     [tx, ty, tw, th, objectness, *class_logits]
 """
+import os
+import sys
 import numpy as np
 import cv2
 
-# Standard YOLOv3 anchors (normalized by 416) and scale masks.
-ANCHORS = np.array([(10, 13), (16, 30), (33, 23), (30, 61), (62, 45),
-                    (59, 119), (116, 90), (156, 198), (373, 326)],
-                   np.float32) / 416.0
-# masks[i] pairs with the output whose grid is the i-th SMALLEST (largest stride first)
-MASKS = [[6, 7, 8], [3, 4, 5], [0, 1, 2]]
+# Anchors from scripts/anchors.json (k-means) if present, else stock COCO anchors.
+# masks[i] pairs with the output whose grid is the i-th SMALLEST (largest stride first).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from anchors_config import load_anchors
+ANCHORS, MASKS = load_anchors()
 
 
 def _sigmoid(x):

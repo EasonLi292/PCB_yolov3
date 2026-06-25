@@ -134,9 +134,23 @@ Always re-run `analyze_openvino.py` on an INT8 IR before trusting it. Evaluate a
 - [scripts/yolo_postprocess.py](scripts/yolo_postprocess.py) — host-side decode + NMS (numpy, ships with the FPGA runtime).
 - [scripts/analyze_openvino.py](scripts/analyze_openvino.py) — test-set mAP / per-class AP / sample montage.
 
+## Anchors (k-means)
+
+Anchors are loaded from `scripts/anchors.json` (shared by training and host decode via
+`scripts/anchors_config.py`); if that file is absent, the stock COCO anchors are used.
+Recompute them for a dataset with:
+
+```bash
+python scripts/compute_anchors.py --data datasets/unified_pku_yolo_gray640 --split train
+```
+
+On the merged train set this lifted mean box↔anchor IoU from **0.63 (stock) → 0.77**, with
+all 9 anchors fitted to the tiny PCB defects. Anchors live only in target-assignment and
+host decode — **zero FPGA impact**. Note: changing anchors makes prior checkpoints
+incompatible (their `tw/th` were learned against the old anchors), so retrain after
+recomputing.
+
 ## Notes / recommended next steps
-- **Anchors:** uses the standard COCO-derived YOLOv3 anchors. PCB defects are small;
-  re-computing anchors (k-means over the dataset's box sizes) will improve recall.
 - **Validation:** the `unified_pku_yolo` split is leakage-free (group-aware by board), so
   val numbers are meaningful. Consider using DeepPCB as an out-of-distribution test set.
 - All stages were smoke-tested on Apple Silicon (build, transfer, forward/backward,
