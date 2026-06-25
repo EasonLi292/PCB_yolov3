@@ -75,7 +75,13 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     compiled = ov.Core().compile_model(args.ir, "CPU")
-    out_port = compiled.output(0)
+    # Auto-detect IR type: 3 outputs = FPGA raw conv heads (decode on host);
+    # 1 output = the decode-baked IR from export_openvino.py.
+    fpga_raw = len(compiled.outputs) >= 3
+    if fpga_raw:
+        from yolo_postprocess import decode_and_nms
+    print(f"IR outputs: {len(compiled.outputs)}  ->",
+          "FPGA raw heads (host decode)" if fpga_raw else "decoded IR")
 
     # per-class: list of (score, is_tp); and total GT count
     preds = defaultdict(list)
@@ -84,11 +90,16 @@ def main():
                   if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp"})
     print(f"Evaluating {len(imgs)} {args.split} images on {len(classes)} classes...")
 
-    sample_paths = set(imgs[:: max(1, len(imgs) // args.samples)][:args.samples])
+    sample_paths = set(imgs[:: max(1, len(imgs) // args.samples)][:args.samples]) if args.samples else set()
     for k, img_path in enumerate(imgs):
         inp, vis, (h0, w0) = preprocess(img_path, args.size)
-        pred = compiled(inp)[out_port][0]
-        dets = postprocess(pred, w0, h0, args.score, args.iou)   # (x1,y1,x2,y2,score,cls)
+        result = compiled(inp)
+        if fpga_raw:
+            raw = [result[o] for o in compiled.outputs]
+            dets = decode_and_nms(raw, w0, h0, args.score, args.iou)
+        else:
+            pred = result[compiled.output(0)][0]
+            dets = postprocess(pred, w0, h0, args.score, args.iou)   # (x1,y1,x2,y2,score,cls)
         gts = load_gt(lbl_dir / f"{img_path.stem}.txt", w0, h0)
         for c, *_ in gts:
             n_gt[c] += 1

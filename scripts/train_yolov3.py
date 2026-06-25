@@ -90,6 +90,8 @@ def main():
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--unfreeze", action="store_true",
                     help="also train the backbone (full fine-tune, use a small lr)")
+    ap.add_argument("--resume", default="",
+                    help="load these .h5 weights before training (e.g. phase-1 best)")
     ap.add_argument("--out", default=str(ROOT / "runs"))
     ap.add_argument("--steps", type=int, default=0,
                     help="limit steps_per_epoch (0 = full epoch); useful for a quick run")
@@ -107,6 +109,9 @@ def main():
         wpath = maybe_download_weights(wpath)
 
     model = build_transfer_model(args.size, nc, wpath)
+    if args.resume and Path(args.resume).exists():
+        model.load_weights(args.resume)
+        print(f"Resumed weights from {args.resume}")
     if args.unfreeze:
         freeze_all(model.get_layer("yolo_darknet"), frozen=False)
         print("Backbone UNFROZEN (full fine-tune).")

@@ -15,3 +15,6 @@ runs/
 datasets/*
 !datasets/README.md
 *.zip
+
+# macOS
+.DS_Store

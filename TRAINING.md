@@ -55,10 +55,43 @@ exported **without** NMS (TF's `CombinedNonMaxSuppression` has no OpenVINO conve
 rule); NMS runs as a `cv2.dnn.NMSBoxes` post-process. For INT8 speedup, quantize the IR
 later with NNCF.
 
+## Stage 4 — FPGA AI Suite export (Intel Agilex 7 F-series) ([scripts/export_fpga.py](scripts/export_fpga.py))
+
+For deployment on the FPGA DLA, export the **raw convolutional detection heads only** (3
+outputs, no decode/NMS in the graph — pure conv/BN/LeakyReLU/upsample/concat). Decode +
+NMS run on the host ([scripts/yolo_postprocess.py](scripts/yolo_postprocess.py), numpy).
+
+```bash
+./.venv-train/bin/python scripts/export_fpga.py \
+    --weights runs/unified_pku_yolo_gray640/yolov3_best.weights.h5 \
+    --out runs/unified_pku_yolo_gray640/openvino_fpga --nc 6 \
+    --int8 --calib-data datasets/unified_pku_yolo_gray640/train --calib-n 300
+```
+
+Produces `yolov3_fpga_fp32.{xml,bin}` (and optional `--int8` → `yolov3_fpga_int8.{xml,bin}`).
+Reads the `.h5` checkpoint directly, so an interrupted training run still exports. Validated
+locally: the FP32 raw-output IR scores the same mAP@0.5 as the full decoded model (~0.41),
+confirming host decode is equivalent.
+
+**INT8:** for Agilex 7 / FPGA AI Suite, prefer feeding the **FP32 IR** to the AI Suite
+compiler and letting `dla_compiler` calibrate INT8 (its DLA-tuned flow). The `--int8` NNCF
+path is experimental — naive PTQ degraded accuracy badly on the early/undertrained weights
+(it keeps the detection heads in FP32 but still needs a well-trained model + accuracy check).
+Always re-run `analyze_openvino.py` on an INT8 IR before trusting it. Evaluate any IR with:
+
+```bash
+./.venv-train/bin/python scripts/analyze_openvino.py --ir .../yolov3_fpga_int8.xml \
+    --data datasets/unified_pku_yolo_gray640 --split test --classes .../classes.txt
+```
+(`analyze_openvino.py` auto-detects 3-output FPGA IRs and decodes on the host.)
+
 ## Files
 - [scripts/yolov3_tf.py](scripts/yolov3_tf.py) — model, loss, Darknet weight loader, tf.data pipeline.
-- [scripts/train_yolov3.py](scripts/train_yolov3.py) — transfer-learning training CLI.
-- [scripts/export_openvino.py](scripts/export_openvino.py) — IR conversion + inference.
+- [scripts/train_yolov3.py](scripts/train_yolov3.py) — transfer-learning training CLI (`--resume`, `--unfreeze`).
+- [scripts/export_openvino.py](scripts/export_openvino.py) — decoded IR + single-image inference (CPU demo).
+- [scripts/export_fpga.py](scripts/export_fpga.py) — raw-output FPGA IR (FP32 + INT8/NNCF).
+- [scripts/yolo_postprocess.py](scripts/yolo_postprocess.py) — host-side decode + NMS (numpy, ships with the FPGA runtime).
+- [scripts/analyze_openvino.py](scripts/analyze_openvino.py) — test-set mAP / per-class AP / sample montage.
 
 ## Notes / recommended next steps
 - **Anchors:** uses the standard COCO-derived YOLOv3 anchors. PCB defects are small;
