@@ -125,8 +125,8 @@ def main():
                 cv2.rectangle(vis, (x1, y1), (x2, y2), (0, 0, 255), 2)
                 cv2.putText(vis, f"{classes[c]} {s:.2f}", (x1, max(0, y1 - 3)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-            cv2.imwrite(str(out_dir / f"sample_{img_path.stem}.jpg"),
-                        cv2.cvtColor(vis, cv2.COLOR_RGB2BGR))
+            # vis is a 3-channel gray canvas; colors were drawn in BGR -> save directly
+            cv2.imwrite(str(out_dir / f"sample_{img_path.stem}.jpg"), vis)
 
     # per-class AP
     print(f"\n{'class':18s} {'GT':>6s} {'preds':>6s} {'AP@0.5':>8s}")

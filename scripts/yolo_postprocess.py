@@ -21,7 +21,7 @@ MASKS = [[6, 7, 8], [3, 4, 5], [0, 1, 2]]
 
 
 def _sigmoid(x):
-    return 1.0 / (1.0 + np.exp(-x))
+    return 1.0 / (1.0 + np.exp(-np.clip(x, -30, 30)))   # clip avoids exp overflow
 
 
 def _decode_one(raw, anchors_sub):
