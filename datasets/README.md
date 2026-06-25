@@ -18,15 +18,24 @@ Point any YOLO trainer (Ultralytics, YOLOv5/v8, etc.) at `datasets/<name>/data.y
 
 | Dataset | `data.yaml` | Images (train/val/test) | Classes |
 |---------|-------------|-------------------------|---------|
-| **`unified_pku_yolo/`** ⭐ | `unified_pku_yolo/data.yaml` | 13,164 (10,584 / 1,294 / 1,286) | 6 |
+| **`unified_pku_yolo/`** ⭐ | `unified_pku_yolo/data.yaml` | 14,664 (12,084 / 1,294 / 1,286) | 6 |
 | **`deeppcb_yolo/`** | `deeppcb_yolo/data.yaml` | 1,500 (1,200 / 150 / 150) | 6 |
-| **`dspcbsd_yolo/`** | `dspcbsd_yolo/data.yaml` | 10,259 (8,207 / 1,025 / 1,027) | 9 |
 
-- **6-class taxonomy** (`unified_pku_yolo`, `deeppcb_yolo`):
-  `0 missing_hole · 1 mouse_bite · 2 open_circuit · 3 short · 4 spur · 5 spurious_copper`
-- **9-class taxonomy** (`dspcbsd_yolo`): `SH SP SC OP MB HB CS CFO BMFO` (see bottom).
+- **6-class taxonomy** (both): `0 missing_hole · 1 mouse_bite · 2 open_circuit · 3 short · 4 spur · 5 spurious_copper`
 
-All labels validated: **0 out-of-range boxes**; 26,861 / 10,013 / 20,276 boxes respectively.
+**`unified_pku_yolo` now includes DeepPCB in TRAIN only** (1,500 `dp_*` images): the 3 PKU
+sources (norbertelter + HRIPCB + Roboflow) are group-split into train/val/test, then the
+DeepPCB defect images are appended to **train** as extra data. DeepPCB is a different visual
+domain (binary 1-bit boards), so it's kept out of val/test — the **val/test splits are
+byte-identical to before**, keeping the benchmark comparable. Use `deeppcb_yolo` to train a
+DeepPCB-only model or as a cross-domain test set.
+
+**DsPCBSD+ was discarded** — its 9-class taxonomy can't merge cleanly (no `missing_hole`,
+adds hole_breakout/scratch/foreign-object classes); a partial merge would leave those
+defects unlabeled and teach false negatives.
+
+Training applies **online augmentation** (flips, 90° rotation, brightness/contrast — see
+`augment()` in [`scripts/yolov3_tf.py`](../scripts/yolov3_tf.py)); disable with `--no-augment`.
 
 ## Splitting — consistent, deterministic, leakage-free
 

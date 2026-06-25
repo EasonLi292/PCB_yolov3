@@ -159,7 +159,18 @@ def collect_dspcbsd():
     return recs
 
 
-def materialize(name, recs, class_names):
+def _write_rec(out, sp, img, txt, fname, counts):
+    link_or_copy(img, out / sp / "images" / fname)
+    lbl = out / sp / "labels" / (Path(fname).stem + ".txt")
+    lbl.parent.mkdir(parents=True, exist_ok=True)
+    lbl.write_text(txt)
+    counts[sp] += 1
+
+
+def materialize(name, recs, class_names, train_only=None):
+    """Build a YOLO dataset. `recs` are group-split into train/val/test; `train_only`
+    records (e.g. a different-domain source) are appended to TRAIN only so they add
+    training data without changing the val/test benchmark."""
     out = DS / name
     if out.exists():
         shutil.rmtree(out)
@@ -179,23 +190,30 @@ def materialize(name, recs, class_names):
 
     counts = {"train": 0, "val": 0, "test": 0}
     for img, txt, grp, fname in recs:
-        sp = assign[grp]
-        link_or_copy(img, out / sp / "images" / fname)
-        lbl = out / sp / "labels" / (Path(fname).stem + ".txt")
-        lbl.parent.mkdir(parents=True, exist_ok=True)
-        lbl.write_text(txt)
-        counts[sp] += 1
+        _write_rec(out, assign[grp], img, txt, fname, counts)
+    for img, txt, grp, fname in (train_only or []):
+        _write_rec(out, "train", img, txt, fname, counts)
 
     yaml = ["path: " + str(out), "train: train/images", "val: val/images", "test: test/images",
             "", f"nc: {len(class_names)}", "names:"]
     for i, c in enumerate(class_names):
         yaml.append(f"  {i}: {c}")
     (out / "data.yaml").write_text("\n".join(yaml) + "\n")
-    print(f"[{name}] {sum(counts.values())} images  ->  {counts}")
+    extra = f"  (+{len(train_only)} train-only)" if train_only else ""
+    print(f"[{name}] {sum(counts.values())} images  ->  {counts}{extra}")
+
+
+def collect_deeppcb_train_merge():
+    """DeepPCB defect images as TRAIN-only records (prefixed dp_). Different visual
+    domain (binary), so kept out of val/test to preserve the PKU benchmark."""
+    return [(img, txt, "dp_" + grp, "dp_" + fname)
+            for (img, txt, grp, fname) in collect_deeppcb()]
 
 
 BUILDERS = {
-    "pku":     (lambda: materialize("unified_pku_yolo", collect_pku(),     CANON)),
+    # unified PKU model = norbertelter + HRIPCB + Roboflow (split), plus DeepPCB in TRAIN only
+    "pku":     (lambda: materialize("unified_pku_yolo", collect_pku(), CANON,
+                                    train_only=collect_deeppcb_train_merge())),
     "deeppcb": (lambda: materialize("deeppcb_yolo",     collect_deeppcb(), CANON)),
     "dspcbsd": (lambda: materialize("dspcbsd_yolo",     collect_dspcbsd(), DSPCBSD)),
 }

@@ -92,6 +92,8 @@ def main():
                     help="also train the backbone (full fine-tune, use a small lr)")
     ap.add_argument("--resume", default="",
                     help="load these .h5 weights before training (e.g. phase-1 best)")
+    ap.add_argument("--no-augment", action="store_true",
+                    help="disable online augmentation (flips, 90° rotation, brightness)")
     ap.add_argument("--out", default=str(ROOT / "runs"))
     ap.add_argument("--steps", type=int, default=0,
                     help="limit steps_per_epoch (0 = full epoch); useful for a quick run")
@@ -129,10 +131,11 @@ def main():
 
     train_ds, n_train = make_dataset(
         data_dir / "train", yolo_anchors, yolo_anchor_masks, args.size, nc,
-        args.batch, shuffle=True)
+        args.batch, shuffle=True, augment_data=not args.no_augment)
     val_ds, n_val = make_dataset(
         data_dir / "val", yolo_anchors, yolo_anchor_masks, args.size, nc,
         args.batch, shuffle=False)
+    print(f"online augmentation: {'OFF' if args.no_augment else 'ON (flips, 90° rot, brightness/contrast)'}")
     print(f"train images: {n_train}  val images: {n_val}")
 
     if args.smoke:

@@ -355,8 +355,48 @@ def _load_label(label_path, max_boxes):
     return out
 
 
+def _rot90_boxes(boxes, k):
+    """Rotate normalized (x1,y1,x2,y2,cls) boxes to match tf.image.rot90 (CCW, k×90°)."""
+    x1, y1, x2, y2, cls = tf.unstack(boxes, axis=1)
+    branches = {
+        0: lambda: tf.stack([x1, y1, x2, y2], 1),
+        1: lambda: tf.stack([y1, 1 - x2, y2, 1 - x1], 1),     # 90° CCW
+        2: lambda: tf.stack([1 - x2, 1 - y2, 1 - x1, 1 - y1], 1),  # 180°
+        3: lambda: tf.stack([1 - y2, x1, 1 - y1, x2], 1),     # 270° CCW
+    }
+    return tf.concat([tf.switch_case(k, branches), cls[:, None]], axis=1)
+
+
+def augment(img, boxes):
+    """Box-exact online augmentation for grayscale PCB: h/v flips, 90° rotation,
+    brightness/contrast. Padding rows (all-zero boxes) are restored to zero so flips
+    don't turn them into spurious detections."""
+    valid = boxes[:, 2] > boxes[:, 0]                         # real boxes have x2 > x1
+
+    def hflip():
+        x1, y1, x2, y2, c = tf.unstack(boxes, axis=1)
+        return tf.image.flip_left_right(img), tf.stack([1 - x2, y1, 1 - x1, y2, c], 1)
+    img2, boxes2 = tf.cond(tf.random.uniform([]) < 0.5, hflip, lambda: (img, boxes))
+
+    def vflip():
+        x1, y1, x2, y2, c = tf.unstack(boxes2, axis=1)
+        return tf.image.flip_up_down(img2), tf.stack([x1, 1 - y2, x2, 1 - y1, c], 1)
+    img3, boxes3 = tf.cond(tf.random.uniform([]) < 0.5, vflip, lambda: (img2, boxes2))
+
+    k = tf.random.uniform([], 0, 4, dtype=tf.int32)
+    img4 = tf.image.rot90(img3, k)
+    boxes4 = _rot90_boxes(boxes3, k)
+
+    img5 = tf.image.random_brightness(img4, 0.1)
+    img5 = tf.image.random_contrast(img5, 0.85, 1.15)
+    img5 = tf.clip_by_value(img5, 0.0, 1.0)
+
+    boxes5 = tf.where(valid[:, None], boxes4, tf.zeros_like(boxes4))
+    return img5, boxes5
+
+
 def make_dataset(split_dir, anchors, anchor_masks, size, classes,
-                 batch_size, max_boxes=100, shuffle=True):
+                 batch_size, max_boxes=100, shuffle=True, augment_data=False):
     import pathlib
     img_dir = pathlib.Path(split_dir) / "images"
     paths = sorted(str(p) for p in img_dir.iterdir()
@@ -369,6 +409,8 @@ def make_dataset(split_dir, anchors, anchor_masks, size, classes,
     def _map(img_path, lbl_path):
         img = _decode_image(img_path, size)
         boxes = _load_label(lbl_path, max_boxes)   # (max_boxes, 5)
+        if augment_data:
+            img, boxes = augment(img, boxes)
         return img, boxes
 
     ds = ds.map(_map, num_parallel_calls=tf.data.AUTOTUNE)
