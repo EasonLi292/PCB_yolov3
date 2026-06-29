@@ -22,3 +22,6 @@ datasets/*
 # release: keep the README, ignore large model binaries
 release/*
 !release/README.md
+
+# model weights (large binaries) anywhere
+*.h5

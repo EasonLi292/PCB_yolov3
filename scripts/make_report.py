@@ -66,14 +66,20 @@ def main():
           "--n", str(args.montage_n), "--out", args.montage])
 
     print("[3/3] writing", args.out)
-    n_test = sum(int(r[1]) for r in per_class)
+    img_dir = Path(args.data) / args.split / "images"
+    n_images = sum(1 for p in img_dir.iterdir()
+                   if p.suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp"})
+    n_gt = sum(int(r[1]) for r in per_class)
     classes = Path(args.classes).read_text().split()
     rows = "\n".join(f"| {r[0]} | {r[1]} | {r[2]} | {r[3]} |" for r in per_class)
     try:
         delta = float(mAP) - float(args.baseline)
-        delta_txt = f"{'+' if delta >= 0 else ''}{delta:.3f} vs the {args.baseline} baseline"
+        if abs(delta) < 1e-9:
+            delta_txt = "current baseline"
+        else:
+            delta_txt = f"{'+' if delta >= 0 else ''}{delta:.3f} vs the {args.baseline} baseline"
     except (TypeError, ValueError):
-        delta_txt = f"baseline was {args.baseline}"
+        delta_txt = f"baseline {args.baseline}"
 
     md = f"""# PCB Defect Detector — Model Report
 
@@ -85,7 +91,8 @@ YOLOv3 (transfer-learned) for 6 PCB defect classes, exported for Intel FPGA AI S
 | Metric | Value |
 |--------|-------|
 | **mAP@0.5 (test)** | **{mAP}** ({delta_txt}) |
-| Test images | {n_test} (held-out, never seen in training) |
+| Test images | {n_images} (held-out, never seen in training) |
+| Defect instances (test) | {n_gt} |
 | Classes | {', '.join(classes)} |
 | Training so far | {args.trained} |
 
@@ -109,8 +116,8 @@ The biggest accuracy levers, roughly in order of impact:
 1. **Full training to convergence + backbone unfreeze.** A frozen-backbone warm-up only
    adapts the detection heads; unfreezing lets the Darknet features adapt to the
    grayscale-PCB domain (far from COCO). This is usually the single largest gain.
-2. **k-means anchors** (already applied — mean box↔anchor IoU 0.63→0.77) mainly help the
-   smallest classes (`spur`, `spurious_copper`) where recall lags.
+2. **k-means anchors** (implemented; mean box↔anchor IoU 0.63→0.77, applied from the next
+   run) mainly help the smallest classes (`spur`, `spurious_copper`) where recall lags.
 3. **More data + augmentation** (DeepPCB added to train; online flips/rotation/brightness)
    improve robustness and reduce overfitting.
 
