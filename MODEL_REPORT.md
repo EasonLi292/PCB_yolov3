@@ -52,9 +52,28 @@ unchanged.
 ## Sample predictions (test set)
 
 Each sample is a pair: **left = ground truth (green)**, **right = model prediction (red,
-with class + confidence)**. Balanced across the source datasets; `[Source]` tag on each.
+with class + confidence)**. Defect type is labeled on every box. Balanced across the
+source datasets (`[Source]` tag on each). Shown in chunks of 10 for readability.
 
-![Sample predictions — left: ground truth (green), right: prediction (red)](docs/eval_samples.jpg)
+**Samples 1–10:**
+
+![samples 1](docs/eval_samples_01.jpg)
+
+**Samples 11–20:**
+
+![samples 2](docs/eval_samples_02.jpg)
+
+**Samples 21–30:**
+
+![samples 3](docs/eval_samples_03.jpg)
+
+**Samples 31–40:**
+
+![samples 4](docs/eval_samples_04.jpg)
+
+**Samples 41–50:**
+
+![samples 5](docs/eval_samples_05.jpg)
 
 ---
 *Regenerate anytime: `python scripts/make_report.py --ir <…>.xml --data <dataset> --classes <…> --trained "<note>"`.*

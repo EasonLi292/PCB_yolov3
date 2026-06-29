@@ -64,6 +64,11 @@ def main():
     _run([py, str(ROOT / "scripts/make_report_samples.py"), "--ir", args.ir,
           "--data", args.data, "--split", args.split, "--classes", args.classes,
           "--n", str(args.montage_n), "--out", args.montage])
+    mp = Path(args.montage)
+    chunks = sorted(mp.parent.glob(f"{mp.stem}_*{mp.suffix}"))
+    montage_md = "\n\n".join(
+        f"**Samples {i*10+1}–{i*10+10}:**\n\n![samples part {i+1}]({c.as_posix()})"
+        for i, c in enumerate(chunks)) or f"![samples]({args.montage})"
 
     print("[3/3] writing", args.out)
     img_dir = Path(args.data) / args.split / "images"
@@ -131,8 +136,9 @@ unchanged.
 
 Each sample is a pair: **left = ground truth (green)**, **right = model prediction (red,
 with class + confidence)**. Balanced across the source datasets; `[Source]` tag on each.
+Split into chunks for readability.
 
-![Sample predictions — left: ground truth (green), right: prediction (red)]({args.montage})
+{montage_md}
 
 ---
 *Regenerate anytime: `python scripts/make_report.py --ir <…>.xml --data <dataset> --classes <…> --trained "<note>"`.*
