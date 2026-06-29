@@ -18,3 +18,7 @@ datasets/*
 
 # macOS
 .DS_Store
+
+# release: keep the README, ignore large model binaries
+release/*
+!release/README.md
