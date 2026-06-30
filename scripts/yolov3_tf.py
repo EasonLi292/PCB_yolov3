@@ -113,27 +113,6 @@ def yolo_boxes(pred, anchors, classes):
     return bbox, objectness, class_probs, pred_box
 
 
-def yolo_nms(outputs, classes, max_boxes=100, iou_thresh=0.5, score_thresh=0.5):
-    b, c, t = [], [], []
-    for o in outputs:
-        b.append(tf.reshape(o[0], (tf.shape(o[0])[0], -1, tf.shape(o[0])[-1])))
-        c.append(tf.reshape(o[1], (tf.shape(o[1])[0], -1, tf.shape(o[1])[-1])))
-        t.append(tf.reshape(o[2], (tf.shape(o[2])[0], -1, tf.shape(o[2])[-1])))
-    bbox = tf.concat(b, axis=1)
-    confidence = tf.concat(c, axis=1)
-    class_probs = tf.concat(t, axis=1)
-    scores = confidence * class_probs
-    boxes, scores, classes_out, valid = tf.image.combined_non_max_suppression(
-        boxes=tf.expand_dims(bbox, axis=2),
-        scores=scores,
-        max_output_size_per_class=max_boxes,
-        max_total_size=max_boxes,
-        iou_threshold=iou_thresh,
-        score_threshold=score_thresh,
-    )
-    return boxes, scores, classes_out, valid
-
-
 def yolo_raw(outputs, classes):
     """Concat decoded predictions across scales into one (batch, N, 4+1+classes) tensor.
     Layout per row: [x1, y1, x2, y2 (normalized), objectness, *class_probs].
@@ -148,7 +127,7 @@ def yolo_raw(outputs, classes):
 
 
 def YoloV3(size=None, channels=3, anchors=yolo_anchors, masks=yolo_anchor_masks,
-           classes=80, training=False, nms=True):
+           classes=80, training=False):
     x = inputs = Input([size, size, channels], name="input")
     x_36, x_61, x = Darknet(name="yolo_darknet")(x)
     x = YoloConv(512, name="yolo_conv_0")(x)
@@ -165,14 +144,10 @@ def YoloV3(size=None, channels=3, anchors=yolo_anchors, masks=yolo_anchor_masks,
     boxes_1 = Lambda(lambda t: yolo_boxes(t, anchors[masks[1]], classes))(output_1)
     boxes_2 = Lambda(lambda t: yolo_boxes(t, anchors[masks[2]], classes))(output_2)
 
-    if not nms:  # OpenVINO-friendly export: decoded boxes+scores, NMS done downstream
-        out = Lambda(lambda t: yolo_raw(t, classes))(
-            (boxes_0[:3], boxes_1[:3], boxes_2[:3]))
-        return Model(inputs, out, name="yolov3")
-
-    outputs = Lambda(lambda t: yolo_nms(t, classes))(
+    # OpenVINO-friendly inference graph: decoded boxes+scores, NMS done on the host.
+    out = Lambda(lambda t: yolo_raw(t, classes))(
         (boxes_0[:3], boxes_1[:3], boxes_2[:3]))
-    return Model(inputs, outputs, name="yolov3")
+    return Model(inputs, out, name="yolov3")
 
 
 # ----------------------------- loss -----------------------------

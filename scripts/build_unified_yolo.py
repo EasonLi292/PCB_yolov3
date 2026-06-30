@@ -11,16 +11,16 @@ All output datasets share the SAME layout, so they load and split identically:
         test/images/   test/labels/
 
 Outputs:
-    unified_pku_yolo/   6-class PKU set  (norbertelter + HRIPCB + Roboflow merged)
-    deeppcb_yolo/       6-class DeepPCB  (grayscale template/test pairs, converted)
-    dspcbsd_yolo/       9-class DsPCBSD+ (broader surface taxonomy, relayouted)
+    unified_pku_yolo/   6-class PKU set (norbertelter + HRIPCB + Roboflow), plus the
+                        DeepPCB defect images appended to TRAIN only
+    deeppcb_yolo/       6-class DeepPCB standalone (grayscale defect images, converted)
 
 Splitting is deterministic (SEED) with a single SPLIT ratio, and GROUP-AWARE: for the
 PKU set, every augmented variant of the same original board/defect image is kept in the
 same split (no train/val leakage). Re-running re-splits reproducibly.
 
 Usage:
-    python scripts/build_unified_yolo.py [pku|deeppcb|dspcbsd|all]
+    python scripts/build_unified_yolo.py [pku|deeppcb|all]
 """
 import os, re, sys, shutil, random
 from pathlib import Path
@@ -35,9 +35,6 @@ SEED = 42
 # ---- canonical 6-class PKU taxonomy ----
 CANON = ["missing_hole", "mouse_bite", "open_circuit", "short", "spur", "spurious_copper"]
 CANON_IDX = {n: i for i, n in enumerate(CANON)}
-
-# ---- DsPCBSD+ 9-class taxonomy (kept as-is) ----
-DSPCBSD = ["SH", "SP", "SC", "OP", "MB", "HB", "CS", "CFO", "BMFO"]
 
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 
@@ -142,23 +139,6 @@ def collect_deeppcb():
     return recs
 
 
-def collect_dspcbsd():
-    root = DS / "kaggle-dspcbsd" / "DsPCBSD+" / "Data_YOLO"
-    recs = []
-    for sp in ("train", "val"):
-        img_dir = root / "images" / sp
-        lbl_dir = root / "labels" / sp
-        if not img_dir.is_dir():
-            continue
-        for img in sorted(img_dir.iterdir()):
-            if img.suffix.lower() not in IMG_EXTS:
-                continue
-            lf = lbl_dir / f"{img.stem}.txt"
-            txt = lf.read_text() if lf.exists() else ""
-            recs.append((img, txt, img.stem, f"{img.stem}{img.suffix.lower()}"))
-    return recs
-
-
 def _write_rec(out, sp, img, txt, fname, counts):
     link_or_copy(img, out / sp / "images" / fname)
     lbl = out / sp / "labels" / (Path(fname).stem + ".txt")
@@ -215,7 +195,6 @@ BUILDERS = {
     "pku":     (lambda: materialize("unified_pku_yolo", collect_pku(), CANON,
                                     train_only=collect_deeppcb_train_merge())),
     "deeppcb": (lambda: materialize("deeppcb_yolo",     collect_deeppcb(), CANON)),
-    "dspcbsd": (lambda: materialize("dspcbsd_yolo",     collect_dspcbsd(), DSPCBSD)),
 }
 
 if __name__ == "__main__":

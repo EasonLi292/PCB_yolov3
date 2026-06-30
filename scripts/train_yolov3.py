@@ -168,7 +168,7 @@ def main():
 
     # Save an inference model with decoding but NMS-free (OpenVINO-convertible;
     # NMS is done in export_openvino.py postprocessing).
-    infer = YoloV3(size=args.size, classes=nc, training=False, nms=False)
+    infer = YoloV3(size=args.size, classes=nc, training=False)
     infer.set_weights(model.get_weights())
     infer.export(str(out / "saved_model"))      # TF SavedModel
     (out / "classes.txt").write_text("\n".join(names) + "\n")

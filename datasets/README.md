@@ -1,6 +1,6 @@
 # PCB Defect Datasets
 
-Six PCB-defect sources loaded and normalized into **three ready-to-train YOLO datasets
+Six PCB-defect sources loaded and normalized into **two ready-to-train YOLO datasets
 that all share one identical layout**, so they load and split the same way.
 Built by [`scripts/build_unified_yolo.py`](../scripts/build_unified_yolo.py).
 
@@ -55,7 +55,7 @@ SEED  = 42
   leakage that a naive random split would cause.
 
 Re-split everything: `python scripts/build_unified_yolo.py all`
-(or `pku` / `deeppcb` / `dspcbsd` individually).
+(or `pku` / `deeppcb` individually).
 
 ## Preprocessed (network-ready) variants
 
@@ -66,9 +66,8 @@ transformed to match. Same `{train,val,test}/{images,labels}` + `data.yaml` layo
 
 | Network-ready dataset | Images | Format |
 |-----------------------|--------|--------|
-| `unified_pku_yolo_gray640/` | 13,164 | 1-channel PNG, 640×640 |
+| `unified_pku_yolo_gray640/` | 14,664 | 1-channel PNG, 640×640 |
 | `deeppcb_yolo_gray640/` | 1,500 | 1-channel PNG, 640×640 |
-| `dspcbsd_yolo_gray640/` | 10,259 | 1-channel PNG, 640×640 |
 
 All verified: every image 640×640×1, all boxes in range, box counts identical to the
 source sets (no labels lost). Train with single-channel input (e.g. Ultralytics `ch=1`).
@@ -84,15 +83,14 @@ fixed grayscale single-channel pipeline as requested.
 
 ## Where the data came from (provenance)
 
-The three builds are derived from these raw sources, kept untouched alongside:
+The builds are derived from these raw sources, kept untouched alongside:
 
 | Build | Raw source folder | Origin | License / notes |
 |-------|-------------------|--------|-----------------|
 | `unified_pku_yolo` | `kaggle-pcb-defect/` | Kaggle — https://www.kaggle.com/datasets/norbertelter/pcb-defect-dataset | Augmented PKU set, 10,668 imgs. Byte-identical to `voc-pcb-augmented`. |
 | `unified_pku_yolo` | `kaggle-hripcb/` | Kaggle — https://www.kaggle.com/datasets/youssefhassan12/hripcb-dataset | Original high-res PKU/HRIPCB, 693 imgs (the parent boards). |
 | `unified_pku_yolo` | `roboflow-pcb/` | Roboflow Universe — https://universe.roboflow.com/pcbdataset/pcb-defect-detection-9ewqw (v2) | 1,803 imgs. CC BY 4.0. |
-| `deeppcb_yolo` | `deeppcb/` | GitHub — https://github.com/Charmve/Surface-Defect-Detection/tree/master/DeepPCB | 1,500 grayscale 640×640 template/test pairs; custom `x1 y1 x2 y2 type` annotations. |
-| `dspcbsd_yolo` | `kaggle-dspcbsd/` | Kaggle — https://www.kaggle.com/datasets/enisteper1/dataset-of-pcb-surface-defects-dspcbsd | DsPCBSD+, 10,259 imgs, 9-class surface taxonomy. |
+| `unified_pku_yolo` (train) + `deeppcb_yolo` | `deeppcb/` | GitHub — https://github.com/Charmve/Surface-Defect-Detection/tree/master/DeepPCB | 1,500 grayscale 640×640 defect images; custom `x1 y1 x2 y2 type` annotations. Binary domain → appended to PKU **train only**. |
 
 Also on disk (not part of a build):
 
@@ -103,8 +101,8 @@ Also on disk (not part of a build):
 
 **Lineage note:** the PKU sources (norbertelter, HRIPCB, Roboflow, VOC_PCB) all trace
 back to the **Peking University HRIPCB** dataset — 693 original boards with 6 photoshopped
-defect types — which is why grouping by board id deduplicates them cleanly. DeepPCB and
-DsPCBSD+ are independent datasets.
+defect types — which is why grouping by board id deduplicates them cleanly. DeepPCB is an
+independent dataset (binary registered boards), appended to the PKU train split.
 
 ## Class-index remapping (why you can't just `cat` the raw labels)
 
@@ -112,8 +110,3 @@ The raw PKU sources use **different index orders for the same classes** — e.g.
 is `mouse_bite` in norbertelter but `missing_hole` in HRIPCB. The build script remaps
 every source by class *name* into the canonical order above. Always rebuild via the
 script rather than merging raw label folders by hand.
-
-## DsPCBSD+ 9 classes
-`SH` short · `SP` spur · `SC` spurious_copper · `OP` open · `MB` mouse_bite ·
-`HB` hole_breakout · `CS` conductor_scratch · `CFO` conductor_foreign_object ·
-`BMFO` base_material_foreign_object
