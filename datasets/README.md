@@ -2,7 +2,7 @@
 
 Six PCB-defect sources loaded and normalized into **two ready-to-train YOLO datasets
 that all share one identical layout**, so they load and split the same way.
-Built by [`scripts/build_unified_yolo.py`](../scripts/build_unified_yolo.py).
+Built by [`yolov3/build_unified_yolo.py`](../yolov3/build_unified_yolo.py).
 
 ## Consistent layout (every trainable dataset)
 
@@ -35,7 +35,7 @@ adds hole_breakout/scratch/foreign-object classes); a partial merge would leave 
 defects unlabeled and teach false negatives.
 
 Training applies **online augmentation** (flips, 90° rotation, brightness/contrast — see
-`augment()` in [`scripts/yolov3_tf.py`](../scripts/yolov3_tf.py)); disable with `--no-augment`.
+`augment()` in [`yolov3/yolov3_tf.py`](../yolov3/yolov3_tf.py)); disable with `--no-augment`.
 
 ## Splitting — consistent, deterministic, leakage-free
 
@@ -54,12 +54,12 @@ SEED  = 42
   more than one split — **verified 0 groups span splits**. This removes the train/val
   leakage that a naive random split would cause.
 
-Re-split everything: `python scripts/build_unified_yolo.py all`
+Re-split everything: `python yolov3/build_unified_yolo.py all`
 (or `pku` / `deeppcb` individually).
 
 ## Preprocessed (network-ready) variants
 
-Run by [`scripts/preprocess_images.py`](../scripts/preprocess_images.py). Each trainable
+Run by [`yolov3/preprocess_images.py`](../yolov3/preprocess_images.py). Each trainable
 dataset has a `*_gray640/` twin where every image is **grayscale, single-channel, and
 letterboxed to 640×640** (aspect ratio preserved, padded with 114), with labels
 transformed to match. Same `{train,val,test}/{images,labels}` + `data.yaml` layout.
@@ -73,8 +73,8 @@ All verified: every image 640×640×1, all boxes in range, box counts identical 
 source sets (no labels lost). Train with single-channel input (e.g. Ultralytics `ch=1`).
 
 ```bash
-python scripts/preprocess_images.py all            # build all *_gray640 sets
-python scripts/preprocess_images.py pku --size 512 # custom size / single dataset
+python yolov3/preprocess_images.py all            # build all *_gray640 sets
+python yolov3/preprocess_images.py pku --size 512 # custom size / single dataset
 ```
 
 Note: if your trainer already letterboxes on the fly (Ultralytics does), you can train

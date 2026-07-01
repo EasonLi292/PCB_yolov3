@@ -35,14 +35,14 @@ mkdir -p datasets && unzip -q unified_pku_yolo_gray640.zip -d datasets
 mkdir -p weights && wget -q https://pjreddie.com/media/files/yolov3.weights -O weights/yolov3.weights
 
 # 4. train: phase 1 fresh from COCO (frozen), then phase 2 unfreeze. H100 fits a big batch.
-#    k-means anchors (scripts/anchors.json) + online augmentation are applied automatically.
-./.venv-train/bin/python scripts/train_yolov3.py --data datasets/unified_pku_yolo_gray640 \
+#    k-means anchors (yolov3/anchors.json) + online augmentation are applied automatically.
+./.venv-train/bin/python yolov3/train_yolov3.py --data datasets/unified_pku_yolo_gray640 \
     --weights weights/yolov3.weights --epochs 30 --batch 32
-./.venv-train/bin/python scripts/train_yolov3.py --data datasets/unified_pku_yolo_gray640 \
+./.venv-train/bin/python yolov3/train_yolov3.py --data datasets/unified_pku_yolo_gray640 \
     --resume runs/unified_pku_yolo_gray640/yolov3_best.weights.h5 --unfreeze --lr 1e-4 --epochs 20 --batch 32
 
 # 5. export FPGA IR + push the trained checkpoint back to Drive
-./.venv-train/bin/python scripts/export_fpga.py \
+./.venv-train/bin/python yolov3/export_fpga.py \
     --weights runs/unified_pku_yolo_gray640/yolov3_best.weights.h5 \
     --out runs/unified_pku_yolo_gray640/openvino_fpga --nc 6
 rclone copy runs/unified_pku_yolo_gray640/yolov3_best.weights.h5 gdrive:
@@ -53,7 +53,7 @@ Alternatives to rclone for step 3: `scp` the files directly from your Mac
 shared Drive link, or just regenerate the dataset on the box with the build/preprocess
 scripts (needs the Kaggle/Roboflow creds again — slower).
 
-## Stage 1–2 — train with transfer learning ([scripts/train_yolov3.py](scripts/train_yolov3.py))
+## Stage 1–2 — train with transfer learning ([yolov3/train_yolov3.py](yolov3/train_yolov3.py))
 
 YOLOv3 = Darknet-53 backbone + 3-scale FPN heads. We:
 1. Load the official pretrained `yolov3.weights` (COCO, 80 classes).
@@ -65,12 +65,12 @@ YOLOv3 = Darknet-53 backbone + 3-scale FPN heads. We:
 
 ```bash
 # downloads pretrained weights on first run (237 MB)
-./.venv-train/bin/python scripts/train_yolov3.py \
+./.venv-train/bin/python yolov3/train_yolov3.py \
     --data datasets/unified_pku_yolo_gray640 \
     --download-weights --epochs 50 --batch 8
 
 # sanity check without training (1 step on 1 batch)
-./.venv-train/bin/python scripts/train_yolov3.py --data datasets/unified_pku_yolo_gray640 --smoke
+./.venv-train/bin/python yolov3/train_yolov3.py --data datasets/unified_pku_yolo_gray640 --smoke
 ```
 
 Outputs to `runs/<dataset>/`: best checkpoint (`.weights.h5`), an NMS-free inference
@@ -80,10 +80,10 @@ Outputs to `runs/<dataset>/`: best checkpoint (`.weights.h5`), an NMS-free infer
 **Grayscale input:** the `*_gray640` images are single-channel; the data pipeline tiles
 them to 3 channels so the pretrained RGB backbone stays valid.
 
-## Stage 3 — export to OpenVINO + run inference ([scripts/export_openvino.py](scripts/export_openvino.py))
+## Stage 3 — export to OpenVINO + run inference ([yolov3/export_openvino.py](yolov3/export_openvino.py))
 
 ```bash
-./.venv-train/bin/python scripts/export_openvino.py \
+./.venv-train/bin/python yolov3/export_openvino.py \
     --saved-model runs/unified_pku_yolo_gray640/saved_model \
     --out runs/unified_pku_yolo_gray640/openvino \
     --image datasets/unified_pku_yolo_gray640/test/images/<some>.png \
@@ -95,14 +95,14 @@ exported **without** NMS (TF's `CombinedNonMaxSuppression` has no OpenVINO conve
 rule); NMS runs as a `cv2.dnn.NMSBoxes` post-process. For INT8 speedup, quantize the IR
 later with NNCF.
 
-## Stage 4 — FPGA AI Suite export (Intel Agilex 7 F-series) ([scripts/export_fpga.py](scripts/export_fpga.py))
+## Stage 4 — FPGA AI Suite export (Intel Agilex 7 F-series) ([yolov3/export_fpga.py](yolov3/export_fpga.py))
 
 For deployment on the FPGA DLA, export the **raw convolutional detection heads only** (3
 outputs, no decode/NMS in the graph — pure conv/BN/LeakyReLU/upsample/concat). Decode +
-NMS run on the host ([scripts/yolo_postprocess.py](scripts/yolo_postprocess.py), numpy).
+NMS run on the host ([yolov3/yolo_postprocess.py](yolov3/yolo_postprocess.py), numpy).
 
 ```bash
-./.venv-train/bin/python scripts/export_fpga.py \
+./.venv-train/bin/python yolov3/export_fpga.py \
     --weights runs/unified_pku_yolo_gray640/yolov3_best.weights.h5 \
     --out runs/unified_pku_yolo_gray640/openvino_fpga --nc 6 \
     --int8 --calib-data datasets/unified_pku_yolo_gray640/train --calib-n 300
@@ -120,27 +120,27 @@ path is experimental — naive PTQ degraded accuracy badly on the early/undertra
 Always re-run `analyze_openvino.py` on an INT8 IR before trusting it. Evaluate any IR with:
 
 ```bash
-./.venv-train/bin/python scripts/analyze_openvino.py --ir .../yolov3_fpga_int8.xml \
+./.venv-train/bin/python yolov3/analyze_openvino.py --ir .../yolov3_fpga_int8.xml \
     --data datasets/unified_pku_yolo_gray640 --split test --classes .../classes.txt
 ```
 (`analyze_openvino.py` auto-detects 3-output FPGA IRs and decodes on the host.)
 
 ## Files
-- [scripts/yolov3_tf.py](scripts/yolov3_tf.py) — model, loss, Darknet weight loader, tf.data pipeline.
-- [scripts/train_yolov3.py](scripts/train_yolov3.py) — transfer-learning training CLI (`--resume`, `--unfreeze`).
-- [scripts/export_openvino.py](scripts/export_openvino.py) — decoded IR + single-image inference (CPU demo).
-- [scripts/export_fpga.py](scripts/export_fpga.py) — raw-output FPGA IR (FP32 + INT8/NNCF).
-- [scripts/yolo_postprocess.py](scripts/yolo_postprocess.py) — host-side decode + NMS (numpy, ships with the FPGA runtime).
-- [scripts/analyze_openvino.py](scripts/analyze_openvino.py) — test-set mAP / per-class AP / sample montage.
+- [yolov3/yolov3_tf.py](yolov3/yolov3_tf.py) — model, loss, Darknet weight loader, tf.data pipeline.
+- [yolov3/train_yolov3.py](yolov3/train_yolov3.py) — transfer-learning training CLI (`--resume`, `--unfreeze`).
+- [yolov3/export_openvino.py](yolov3/export_openvino.py) — decoded IR + single-image inference (CPU demo).
+- [yolov3/export_fpga.py](yolov3/export_fpga.py) — raw-output FPGA IR (FP32 + INT8/NNCF).
+- [yolov3/yolo_postprocess.py](yolov3/yolo_postprocess.py) — host-side decode + NMS (numpy, ships with the FPGA runtime).
+- [yolov3/analyze_openvino.py](yolov3/analyze_openvino.py) — test-set mAP / per-class AP / sample montage.
 
 ## Anchors (k-means)
 
-Anchors are loaded from `scripts/anchors.json` (shared by training and host decode via
-`scripts/anchors_config.py`); if that file is absent, the stock COCO anchors are used.
+Anchors are loaded from `yolov3/anchors.json` (shared by training and host decode via
+`yolov3/anchors_config.py`); if that file is absent, the stock COCO anchors are used.
 Recompute them for a dataset with:
 
 ```bash
-python scripts/compute_anchors.py --data datasets/unified_pku_yolo_gray640 --split train
+python yolov3/compute_anchors.py --data datasets/unified_pku_yolo_gray640 --split train
 ```
 
 On the merged train set this lifted mean box↔anchor IoU from **0.63 (stock) → 0.77**, with
