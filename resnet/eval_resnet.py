@@ -33,19 +33,25 @@ def auc_trapz(xs, ys):
 
 
 def curves(y, p):
-    """Return (roc_auc, pr_auc) computed over all unique thresholds."""
+    """Return (roc_auc, pr_auc). ROC via trapezoid over thresholds; PR-AUC as the
+    standard step-wise Average Precision (rank scores desc, sum prec*Δrecall) — the
+    threshold-trapezoid form mis-integrates the near-vertical PR curve of a strong
+    classifier, so we use AP instead."""
     thr = np.unique(np.concatenate([[0.0], p, [1.0]]))
-    tpr, fpr, prec, rec = [], [], [], []
+    tpr, fpr = [], []
     P, N = (y == 1).sum(), (y == 0).sum()
     for t in thr:
         pred = p >= t
         tp = np.sum(pred & (y == 1)); fp = np.sum(pred & (y == 0))
-        fn = np.sum(~pred & (y == 1))
         tpr.append(tp / P if P else 0.0)
         fpr.append(fp / N if N else 0.0)
-        rec.append(tp / P if P else 0.0)
-        prec.append(tp / (tp + fp) if (tp + fp) else 1.0)
-    return auc_trapz(fpr, tpr), auc_trapz(rec, prec)
+    order = np.argsort(-p)
+    ys = y[order]
+    tp = np.cumsum(ys); fp = np.cumsum(1 - ys)
+    rec = tp / P if P else np.zeros_like(tp, float)
+    prec = tp / np.maximum(tp + fp, 1)
+    ap = float(prec[0] * rec[0] + np.sum((rec[1:] - rec[:-1]) * prec[1:]))
+    return auc_trapz(fpr, tpr), ap
 
 
 def main():
