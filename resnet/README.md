@@ -85,6 +85,43 @@ smoothness cheat.
 ![clean plates](clean_plates.jpg)
 ![heal verification](heal_verify.jpg)
 
+### Dataset splits & measured performance
+
+The trained dataset (`datasets/pcb_patches`, 384px JPG patches) splits ~8/1/1 at the
+**patch level** — all 10 templates appear in every split:
+
+| split | good | bad | total |
+|-------|------|-----|-------|
+| train | 9,600 | 9,448 | 19,048 |
+| val   | 1,200 | 1,180 | 2,380 |
+| test  | 1,200 | 1,184 | 2,384 |
+| **total** | **12,000** | **11,812** | **23,812** |
+
+Because every board layout is present in train **and** test, this is an *in-distribution*
+test — it measures performance on **boards the model has seen**, which matches the
+deployment plan (in production you train on the same boards you inspect). Test result
+(`best.weights.h5`, size 256, threshold 0.5):
+
+```
+               pred good   pred bad
+  actual good     1159         41
+  actual bad         4       1180
+accuracy 0.981 · precision 0.966 · recall 0.997 · ROC-AUC 0.999 · PR-AUC 1.000
+```
+
+Failure mode is over-cautious — 41 false alarms vs. only 4 missed defects, the safe
+direction for a screen.
+
+**A note on leakage (minor, accepted).** Each defect is minted as 4 jittered siblings
+(±12 px, ±12°); the per-patch split scatters them across train/test, so ~14 % of
+test-**bad** patches have a near-identical twin the model trained on (the **good** patches
+are clean — distinct random crops of the healed plate, ~0 % near-dups). This slightly
+inflates bad-class recall/PR-AUC. The good-side precision and false alarms are
+unaffected. Net honest range is ~0.97–0.98 (cf. an earlier by-template held-out split
+that scored 0.972). A little leakage is acceptable here since the deployment target is
+the same-boards regime anyway; for a leakage-free number, split per-defect (keep a
+defect's 4 siblings in one split) instead of per-patch.
+
 ### Alternative: whole-board route
 
 Treat each board as one image (good = DeepPCB templates, bad = defective boards). Simpler

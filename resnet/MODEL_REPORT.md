@@ -40,57 +40,72 @@ heads + host-side decode/NMS.
 
 ## 2. Test-set results
 
-Held-out split = **templates 01 & 04** (board layouts never seen in training),
-**5,264 patches** (2,400 good / 2,864 defective).
+Measured on the actual trained dataset `datasets/pcb_patches` (**FP32**, Keras). The
+split is ~8/1/1 at the **patch level** — all 10 templates appear in every split, so this
+is an *in-distribution* test (performance on **boards the model has seen**), which
+matches the deployment plan of training on the same boards you inspect. Test split =
+**2,384 patches** (1,200 good / 1,184 defective).
 
 ### Confusion matrix @ threshold 0.50 (positive = defective)
 
 |                | pred good | pred bad |
 |----------------|-----------|----------|
-| **actual good** | 2258 (TN) | 142 (FP) |
-| **actual bad**  | 3 (FN)    | 2861 (TP) |
+| **actual good** | 1159 (TN) | 41 (FP) |
+| **actual bad**  | 4 (FN)    | 1180 (TP) |
 
 | metric | value |
 |---|---|
-| accuracy | **0.972** |
-| precision (defect) | 0.953 |
-| recall (defect) — *bad boards caught* | **0.999** |
-| F1 (defect) | 0.975 |
-| ROC-AUC | 0.999 |
-| PR-AUC / average-precision | 0.9996 |
+| accuracy | **0.9811** |
+| precision (defect) | 0.9664 |
+| recall (defect) — *bad boards caught* | **0.9966** |
+| F1 (defect) | 0.9813 |
+| ROC-AUC | 0.9995 |
+| PR-AUC / average-precision | 0.9995 |
 
-Score separation is near-clean: mean `P(defective)` = **0.09** on good patches vs.
-**0.997** on bad.
+Score separation is near-clean: mean `P(defective)` = **0.059** on good patches vs.
+**0.994** on bad.
 
 ### Threshold sweep
 
 | thr | acc | prec | recall |
 |-----|-----|------|--------|
-| 0.2 | 0.942 | 0.904 | 1.000 |
-| 0.3 | 0.958 | 0.929 | 1.000 |
-| 0.4 | 0.966 | 0.941 | 0.999 |
-| **0.5** | **0.972** | **0.953** | **0.999** |
-| 0.6 | 0.979 | 0.964 | 0.998 |
-| 0.7 | 0.982 | 0.971 | 0.997 |
-| 0.8 | 0.985 | 0.978 | 0.995 |
+| 0.2 | 0.9568 | 0.9206 | 0.9992 |
+| 0.3 | 0.9702 | 0.9441 | 0.9992 |
+| 0.4 | 0.9782 | 0.9594 | 0.9983 |
+| **0.5** | **0.9811** | **0.9664** | **0.9966** |
+| 0.6 | 0.9845 | 0.9728 | 0.9966 |
+| 0.7 | 0.9866 | 0.9800 | 0.9932 |
+| 0.8 | 0.9874 | 0.9849 | 0.9899 |
 
 ### Where the errors are
 
-- **142 false positives** (good → bad): clean regions flagged anyway; 128 on template
-  01, 14 on template 04. Failure direction is *over-cautious*, which is the safe side
-  for a screen. Sample montage: [`test_errors.jpg`](test_errors.jpg).
-- **3 false negatives** (defect → good) — all on template 01, all among the smallest
-  defects, boxed in [`false_negatives.jpg`](false_negatives.jpg):
+- **41 false positives** (good → bad): clean regions flagged anyway. Failure direction
+  is *over-cautious* — 41 false alarms vs. only 4 missed defects, the safe side for a
+  screen. Sample montage: [`test_errors.jpg`](test_errors.jpg).
+- **4 false negatives** (defect → good), all near/under the 0.5 line, shown with their
+  scores in [`false_negatives.jpg`](false_negatives.jpg) (bad patches are cropped
+  centered on the defect):
 
-  | patch idx | defect | size | P(defective) |
-  |---|---|---|---|
-  | 1087 | spur | 38 × 38 px | 0.489 (just under 0.5) |
-  | 1531 | short | 48 × 54 px | 0.337 |
-  | 2238 | open_circuit | 31 × 30 px | 0.061 (confident miss) |
+  | patch | defect region | P(defective) |
+  |---|---|---|
+  | `tpl_01_bad_u00128_v3` | spur near dense routing | 0.489 (just under 0.5) |
+  | `tpl_08_bad_u01867_v0` | LED-array trace | 0.351 |
+  | `tpl_08_bad_u01638_v3` | LED-array trace | 0.432 |
+  | `tpl_08_bad_u01638_v0` | LED-array trace | 0.066 (confident miss) |
 
-  Same failure mode: a ~30 px defect cropped into the 1024 px window and stored at 384
-  becomes ~1 % of the frame, surrounded by high-contrast pins/vias. Dropping the
-  threshold to 0.4 recovers idx 1087; idx 2238 needs more defect signal (tighter
-  `--patch` / larger `--save-size`), not a threshold change.
+  Same failure mode as before: the smallest defects, downscaled into a busy frame, sit
+  near the visibility floor. Dropping the threshold to 0.4 recovers the two 0.43–0.49
+  cases; the 0.066 miss needs more defect signal (tighter crop / larger `--save-size`),
+  not a threshold change.
+
+### A note on leakage (minor, accepted)
+
+Each defect is minted as 4 jittered siblings (`u<id>_v0..v3`, ±12 px / ±12°); the
+per-patch split scatters them across train/test, so ~14 % of test-**bad** patches have a
+near-identical twin the model trained on (the **good** patches are clean — ~0 %
+near-dups). This slightly inflates bad-class recall/PR-AUC; good-side precision and false
+alarms are unaffected. Honest range is ~0.97–0.98 (an earlier by-template held-out split
+scored 0.972). Acceptable here since the deployment target is the same-boards regime; for
+a leakage-free figure, split per-defect instead of per-patch.
 
 *Reproduce:* `python resnet/eval_resnet.py --weights best.weights.h5 --data datasets/pcb_patches --size 256`

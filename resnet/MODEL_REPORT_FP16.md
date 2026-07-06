@@ -4,8 +4,8 @@ Same model and test set as [`MODEL_REPORT.md`](MODEL_REPORT.md), but measured on
 **FP16 OpenVINO IR** — the half-precision graph that maps to the Intel FPGA AI Suite
 (Agilex 7 F-series) DLA. Output: `P(defective) ∈ [0, 1]` (**good = 0, defective = 1**).
 
-> **Bottom line:** FP16 is effectively lossless — accuracy 0.9723 vs. FP32's 0.9725,
-> only 5 of 5,264 predictions differ, and **zero defects newly missed**. Weight
+> **Bottom line:** FP16 is effectively lossless — accuracy 0.9811, identical to FP32,
+> only 2 of 2,384 predictions differ, and **zero defects newly missed**. Weight
 > footprint halves (94 MB → 47 MB).
 
 ---
@@ -30,52 +30,54 @@ training change — this is purely the deployment IR.
 
 ## 2. Test-set results (FP16 OpenVINO runtime)
 
-Held-out split = **templates 01 & 04**, **5,264 patches** (2,400 good / 2,864 defective).
-Inference run through the OpenVINO CPU runtime with `INFERENCE_PRECISION_HINT=f16`.
+Same in-distribution split as [`MODEL_REPORT.md §2`](MODEL_REPORT.md) (all 10 templates
+in every split), test = **2,384 patches** (1,200 good / 1,184 defective). Inference run
+through the OpenVINO CPU runtime with `INFERENCE_PRECISION_HINT=f16`.
 
 ### Confusion matrix @ threshold 0.50 (positive = defective)
 
 |                | pred good | pred bad |
 |----------------|-----------|----------|
-| **actual good** | 2256 (TN) | 144 (FP) |
-| **actual bad**  | 2 (FN)    | 2862 (TP) |
+| **actual good** | 1158 (TN) | 42 (FP) |
+| **actual bad**  | 3 (FN)    | 1181 (TP) |
 
 | metric | FP16 | (FP32 for reference) |
 |---|---|---|
-| accuracy | **0.9723** | 0.9725 |
-| precision (defect) | 0.9521 | 0.9527 |
-| recall (defect) — *bad boards caught* | **0.9993** | 0.9990 |
-| F1 (defect) | 0.9751 | 0.9751 |
-| ROC-AUC | 0.9995 | 0.999 |
-| PR-AUC / average-precision | 0.9996 | 0.9996 |
+| accuracy | **0.9811** | 0.9811 |
+| precision (defect) | 0.9657 | 0.9664 |
+| recall (defect) — *bad boards caught* | **0.9975** | 0.9966 |
+| F1 (defect) | 0.9813 | 0.9813 |
+| ROC-AUC | 0.9995 | 0.9995 |
+| PR-AUC / average-precision | 0.9995 | 0.9995 |
 
-Score separation is unchanged: mean `P(defective)` = **0.094** on good patches vs.
-**0.997** on bad.
+Score separation is unchanged: mean `P(defective)` = **0.060** on good patches vs.
+**0.994** on bad.
 
 ### Threshold sweep
 
 | thr | acc | prec | recall |
 |-----|-----|------|--------|
-| 0.2 | 0.9411 | 0.9026 | 1.000 |
-| 0.3 | 0.9576 | 0.9280 | 1.000 |
-| 0.4 | 0.9654 | 0.9408 | 0.999 |
-| **0.5** | **0.9723** | **0.9521** | **0.999** |
-| 0.6 | 0.9785 | 0.9639 | 0.998 |
-| 0.7 | 0.9821 | 0.9714 | 0.997 |
-| 0.8 | 0.9854 | 0.9784 | 0.995 |
+| 0.2 | 0.9568 | 0.9206 | 0.9992 |
+| 0.3 | 0.9702 | 0.9441 | 0.9992 |
+| 0.4 | 0.9782 | 0.9594 | 0.9983 |
+| **0.5** | **0.9811** | **0.9657** | **0.9975** |
+| 0.6 | 0.9849 | 0.9736 | 0.9966 |
+| 0.7 | 0.9857 | 0.9784 | 0.9932 |
+| 0.8 | 0.9874 | 0.9857 | 0.9890 |
 
 ### FP32 → FP16 delta
 
-- **5 / 5,264 predictions flip** (0.09%); mean |Δprob| ≈ 0.001, worst case 0.10.
-- **0 defects newly missed.** Recall actually improves by one: the **spur** patch
-  `tpl_01_001087` (FP32 `P=0.489`, just under the line) rounds to caught in FP16, so
-  FN drops 3 → 2. The trade is 2 extra false alarms (FP 142 → 144) — a wash.
-- Remaining FP16 false negatives (both still the tiny sub-frame defects):
+- **2 / 2,384 predictions flip** (0.08%); mean |Δprob| ≈ 0.001.
+- **0 defects newly missed.** Recall actually improves by one: the borderline spur patch
+  `tpl_01_bad_u00128_v3` (FP32 `P=0.489`, just under the line) rounds to caught in FP16,
+  so FN drops 4 → 3. The trade is 1 extra false alarm (FP 41 → 42) — a wash.
+- Remaining FP16 false negatives (still the smallest sub-frame defects):
 
-  | patch idx | defect | size | P(defective) FP16 |
-  |---|---|---|---|
-  | 1531 | short | 48 × 54 px | 0.341 |
-  | 2238 | open_circuit | 31 × 30 px | 0.060 |
+  | patch | P(defective) FP16 |
+  |---|---|
+  | `tpl_08_bad_u01638_v3` | 0.421 |
+  | `tpl_08_bad_u01867_v0` | 0.355 |
+  | `tpl_08_bad_u01638_v0` | 0.065 (confident miss) |
 
 ### Takeaway
 
