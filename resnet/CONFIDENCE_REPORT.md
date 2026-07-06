@@ -81,10 +81,18 @@ local "copper-blob / gap / bridge" shapes and can't see enough surrounding board
 **The confident miss (P = 0.066).** `tpl_08_bad_u01638_v0` is a **mouse-bite** in an
 LED/pad-array region — a long row of near-identical pads where the small notch hides in the
 repetition. Its jitter sibling `u01638_v3` (a **short**, P = 0.432) was nearly caught, so
-these sit right at the visibility floor rather than being gross failures. The other two
-misses are a centered **mouse-bite** (`u00128_v3`, 0.489, just under the line) and a
-**missing-hole** (`u01867_v0`, 0.351). All four are small defects that fill little of the
-downscaled frame.
+these sit right at the visibility floor rather than being gross failures. The fourth,
+`u00128_v3` (0.489, just under the line), is another **mouse-bite**. The remaining tile
+`u01867_v0` (0.351) could **not** be reliably matched back to a source image (best
+correlation 0.30), so its class is left **unresolved** (yellow box) rather than guessed.
+
+**Why these are missed — resolution.** Each patch is stored at **384×384**, made by
+cropping a **1024 px** region of the ~2,150 px source board and downscaling it ~2.7×; the
+model then trains at **256 px**. So a real 40–60 px defect is only ~15–22 px in the stored
+patch and ~10–15 px at train time — a handful of pixels inside a busy 256 px frame. That
+low effective resolution, not a modelling flaw, is the direct cause of the subtle-defect
+misses. The lever is to re-mine with more defect signal in-frame: a larger `--save-size`
+(e.g. 512) or a tighter `--patch` (more zoom per defect).
 
 **Fixing the confident errors is a data lever, not a threshold one** (they're at 0.9+, far
 from 0.5): feed these exact clean-but-defect-like regions back as **hard negatives**, add
