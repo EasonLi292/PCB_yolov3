@@ -51,6 +51,12 @@ Only **7 false positives score ≥ 0.90** and **exactly 1 false negative scores 
 
 ![confident errors](confident_errors.jpg)
 
+In the figure the false-negative defects are **boxed in magenta** at their real annotated
+size and class (recovered by matching each patch back to its HRIPCB source image; the box
+is centered because bad tiles are cropped centered on the defect). The false positives get
+**no box** — they are labeled *"clean — no defect"* because there genuinely is nothing to
+find, which is the whole point of the error.
+
 **Confident false positives (clean → sure it's defective).** These "good" patches come
 from the **healed clean plates**, so they are defect-free *by construction* — this is not
 label noise. The model is genuinely fooled by clean structures that mimic defect
@@ -72,10 +78,13 @@ The root cause is inherent to a context-free patch classifier: it has over-learn
 local "copper-blob / gap / bridge" shapes and can't see enough surrounding board to tell a
 *designed* trace-end from a *spur*.
 
-**The one confident miss (P = 0.066).** `tpl_08_bad_u01638_v0` is an LED/pad-array region —
-a long row of near-identical pads where the real defect hides in the repetition. Its jitter
-sibling `u01638_v3` scored 0.432 (nearly caught), so it sits right at the visibility floor
-rather than being a gross failure.
+**The confident miss (P = 0.066).** `tpl_08_bad_u01638_v0` is a **mouse-bite** in an
+LED/pad-array region — a long row of near-identical pads where the small notch hides in the
+repetition. Its jitter sibling `u01638_v3` (a **short**, P = 0.432) was nearly caught, so
+these sit right at the visibility floor rather than being gross failures. The other two
+misses are a centered **mouse-bite** (`u00128_v3`, 0.489, just under the line) and a
+**missing-hole** (`u01867_v0`, 0.351). All four are small defects that fill little of the
+downscaled frame.
 
 **Fixing the confident errors is a data lever, not a threshold one** (they're at 0.9+, far
 from 0.5): feed these exact clean-but-defect-like regions back as **hard negatives**, add
