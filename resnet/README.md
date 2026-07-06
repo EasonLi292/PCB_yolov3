@@ -99,7 +99,8 @@ The trained dataset (`datasets/pcb_patches`, 384px JPG patches) splits ~8/1/1 at
 
 What the training patches actually look like (good = defect-free crops from the healed
 clean plates; bad = crops centered on a real annotated defect), spread across templates
-T01–T12:
+T01–T12, shown at **256×256 — the exact resolution the model sees** (each is the 384px
+stored patch resized to the 256px network input):
 
 ![training samples](dataset_samples.jpg)
 
