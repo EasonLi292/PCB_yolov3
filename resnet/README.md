@@ -129,6 +129,31 @@ that scored 0.972). A little leakage is acceptable here since the deployment tar
 the same-boards regime anyway; for a leakage-free number, split per-defect (keep a
 defect's 4 siblings in one split) instead of per-patch.
 
+### Regenerating the dataset from the source boards (e.g. at 512 px)
+
+Patches are *derived* data; the ground truth is the **HRIPCB source boards + labels**
+(`datasets/unified_pku_yolo/**/hr_*`, ~916 MB, gitignored). To continue on another
+machine and mine higher-resolution patches:
+
+1. Get the boards. They ship separately from git (too large) — as `hripcb_source.zip`
+   via Google Drive. On the new machine:
+   ```bash
+   pip install gdown && gdown <DRIVE_FILE_ID> -O datasets/hripcb_source.zip
+   cd datasets && unzip -q hripcb_source.zip && cd ..     # recreates unified_pku_yolo/**/hr_*
+   ```
+2. Mine patches at 512 px (vs the old 384 — less downscale, more defect signal):
+   ```bash
+   python resnet/mine_patches.py --heal --save-size 512            # 1024 crop -> saved at 512
+   # or tighter zoom per defect:
+   python resnet/mine_patches.py --heal --patch 768 --save-size 512
+   ```
+   Clean plates auto-rebuild from the boards; output lands in `datasets/pcb_patches/`.
+3. Train at the new size, e.g. `--size 384` or `512` (see the two-phase recipe above).
+
+Mining only needs `opencv-python` + `numpy`. Note: this script produces a **by-template
+6/2/2 held-out split** (`tpl_XX_NNNNNN` naming), which is the honest held-out evaluation —
+not the per-patch in-distribution split of the previously trained `pcb_patches`.
+
 ### Alternative: whole-board route
 
 Treat each board as one image (good = DeepPCB templates, bad = defective boards). Simpler
