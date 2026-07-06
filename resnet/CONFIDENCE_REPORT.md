@@ -44,10 +44,51 @@ whether the prediction is correct. Companion to [`MODEL_REPORT.md`](MODEL_REPORT
   2 predictions ([`MODEL_REPORT_FP16.md`](MODEL_REPORT_FP16.md)) — the wide margin is why
   precision reduction is nearly free here.
 
-**Practical takeaway:** the clean bimodal separation means the 0.5 threshold is not
+## Where the model is *confidently* wrong
+
+Most errors hedge near 0.5, but a few are confident — those are the informative ones.
+Only **7 false positives score ≥ 0.90** and **exactly 1 false negative scores ≤ 0.15**.
+
+![confident errors](confident_errors.jpg)
+
+**Confident false positives (clean → sure it's defective).** These "good" patches come
+from the **healed clean plates**, so they are defect-free *by construction* — this is not
+label noise. The model is genuinely fooled by clean structures that mimic defect
+morphology:
+
+- isolated copper stubs / trace terminations (0.996, 0.982) → look like a **spur** /
+  **spurious_copper**;
+- tightly-spaced parallel traces and IC pin arrays (0.990, 0.892) → look like a **short**;
+- trace corners and via clusters (0.956, 0.938) → resemble **mouse-bite** / **open-circuit**.
+
+Two signs it's *systematic*, not random noise:
+1. **Template 01 dominates** — 7 of the top 12 confident FPs are `tpl_01`; that layout has
+   a motif the model reliably misreads.
+2. **Jitter siblings fail together** — `u00280_v0` (0.926) and `u00280_v1` (0.909) are the
+   same region shifted a few pixels, both confidently wrong. Noise would scatter; the
+   *feature itself* triggers it.
+
+The root cause is inherent to a context-free patch classifier: it has over-learned the
+local "copper-blob / gap / bridge" shapes and can't see enough surrounding board to tell a
+*designed* trace-end from a *spur*.
+
+**The one confident miss (P = 0.066).** `tpl_08_bad_u01638_v0` is an LED/pad-array region —
+a long row of near-identical pads where the real defect hides in the repetition. Its jitter
+sibling `u01638_v3` scored 0.432 (nearly caught), so it sits right at the visibility floor
+rather than being a gross failure.
+
+**Fixing the confident errors is a data lever, not a threshold one** (they're at 0.9+, far
+from 0.5): feed these exact clean-but-defect-like regions back as **hard negatives**, add
+more template-01 clean variety, and give subtle defects more signal in-frame (tighter crop
+/ larger `--save-size`).
+
+## Practical takeaway
+
+The clean bimodal separation means the 0.5 threshold is not
 delicate — you can slide it toward 0.4 to catch the borderline misses (trading a few more
 false alarms) or toward 0.7 to cut false alarms (barely touching recall), and the sweep
-in [`MODEL_REPORT.md`](MODEL_REPORT.md) quantifies each choice.
+in [`MODEL_REPORT.md`](MODEL_REPORT.md) quantifies each choice. The **confident** errors,
+however, won't move with the threshold — they need harder training data.
 
 *Reproduce:* run `eval_resnet.py` to get per-patch scores, then plot `P(defective)`
 histograms split by label. Figure: `resnet/confidence_distribution.png`.

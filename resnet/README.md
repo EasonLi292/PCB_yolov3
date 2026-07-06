@@ -97,6 +97,12 @@ The trained dataset (`datasets/pcb_patches`, 384px JPG patches) splits ~8/1/1 at
 | test  | 1,200 | 1,184 | 2,384 |
 | **total** | **12,000** | **11,812** | **23,812** |
 
+What the training patches actually look like (good = defect-free crops from the healed
+clean plates; bad = crops centered on a real annotated defect), spread across templates
+T01–T12:
+
+![training samples](dataset_samples.jpg)
+
 Because every board layout is present in train **and** test, this is an *in-distribution*
 test — it measures performance on **boards the model has seen**, which matches the
 deployment plan (in production you train on the same boards you inspect). Test result
