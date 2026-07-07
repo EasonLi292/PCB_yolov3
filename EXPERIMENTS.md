@@ -167,6 +167,33 @@ assumption — a defect landing anywhere in a tile still gets caught).
 
 ---
 
+## Saved artifacts & reproducibility (re-test later without re-training)
+
+Every training and mining run now writes a **manifest** so the weights, config, and the
+exact dataset are recorded — you can come back months later and evaluate without retraining.
+
+- **Training** (`train_resnet.py`, `train_multiclass.py`, `train_yolov3.py`) saves, under
+  `runs_resnet/<dataset>/` (or `runs/<dataset>/` for YOLO):
+  `best.weights.h5` (guaranteed written, restored-best), `saved_model/`, `classes.txt`, and
+  **`run_manifest.json`** — task, dataset path, size/batch/epochs/lr, phase, augment flag,
+  class counts, best val metric, git commit, timestamp, and the exact re-test command.
+- **Mining** (`mine_patches.py`, `mine_defect_types.py`) writes **`dataset_manifest.json`**
+  into the dataset dir — source, all mining params, seed, per-split counts, template split,
+  and the argv. Mining is **seeded/deterministic**, so the same command reproduces the same
+  dataset byte-for-byte.
+
+**To preserve a dataset for future testing, keep either:**
+1. the `dataset_manifest.json` (then re-run its `argv` on the same source boards to
+   regenerate it exactly — smallest to keep), **or**
+2. a zip of the dataset dir on Drive, if you want the test split without re-mining:
+   ```bash
+   zip -qr datasets/pcb_patches_512.zip datasets/pcb_patches_512   # then upload to Drive
+   ```
+
+**Keep** `runs_*/` (weights + manifests) — they're small and are all you need to re-run
+`eval_*.py` / `board_level_eval.py` later. `runs_resnet/` is gitignored (big weights stay
+out of git); back it up to Drive alongside the dataset zips.
+
 ## Suggested order & notes
 - Independent, but a sensible order is **3 → 4 → 2 → 1** (3 & 4 reuse the binary pipeline;
   2 adds a head; 1 is the largest / detector-side effort).

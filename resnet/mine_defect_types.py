@@ -102,6 +102,24 @@ def main():
     for sp in ("train", "val", "test"):
         print(f"  {sp:5s}: {counts[sp]}  total={sum(counts[sp].values())}")
     (out / "classes.txt").write_text("\n".join(CLASSES) + "\n")
+
+    import json, subprocess, datetime, sys as _sys
+    info = {
+        "kind": "pcb_defect_types", "classes": CLASSES, "source": args.source,
+        "patch": args.patch, "save_size": args.save_size, "save_fmt": args.save_fmt,
+        "aug": args.aug, "shift_px": args.shift_px, "rot_deg": args.rot_deg, "seed": SEED,
+        "counts": counts, "template_split": {g: split_of[g] for g in sorted(split_of)},
+        "argv": " ".join(_sys.argv),
+        "regenerate": "re-run this exact command (mining is seeded/deterministic)",
+    }
+    try:
+        info["git_commit"] = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=str(mp.ROOT)).decode().strip()
+    except Exception:
+        info["git_commit"] = "unknown"
+    info["created"] = datetime.datetime.now().isoformat(timespec="seconds")
+    (out / "dataset_manifest.json").write_text(json.dumps(info, indent=2))
+    print(f"wrote manifest -> {out / 'dataset_manifest.json'}")
     print("Train with:  python resnet/train_multiclass.py --data datasets/pcb_defect_types "
           f"--size {min(args.save_size, 256)}")
 

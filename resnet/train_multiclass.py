@@ -23,6 +23,19 @@ import data_multiclass as dm
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def save_manifest(path, info):
+    """JSON run manifest (config + provenance) next to the weights, for later re-testing."""
+    import json, subprocess, datetime
+    try:
+        info["git_commit"] = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=str(ROOT)).decode().strip()
+    except Exception:
+        info["git_commit"] = "unknown"
+    info["created"] = datetime.datetime.now().isoformat(timespec="seconds")
+    Path(path).write_text(json.dumps(info, indent=2))
+    print(f"wrote manifest -> {path}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", required=True, help="dir with train/ val/ <class>/ folders")
@@ -77,10 +90,24 @@ def main():
                                            mode="max", save_best_only=True,
                                            save_weights_only=True, verbose=1),
     ]
-    model.fit(tr, validation_data=va, epochs=args.epochs, class_weight=cw, callbacks=cbs)
+    hist = model.fit(tr, validation_data=va, epochs=args.epochs, class_weight=cw, callbacks=cbs)
+    model.save_weights(str(out / "best.weights.h5"))   # guarantee the (restored-best) weights exist
     model.export(str(out / "saved_model"))
     (out / "classes.txt").write_text("\n".join(names) + "\n")
-    print(f"Saved best weights + SavedModel + classes.txt under {out}")
+    save_manifest(out / "run_manifest.json", {
+        "task": "defect_type_multiclass", "model": "resnet50", "n_classes": K,
+        "weights": "best.weights.h5", "saved_model": "saved_model", "classes": names,
+        "dataset": str(Path(args.data).resolve()), "dataset_name": data_dir.name,
+        "size": args.size, "batch": args.batch, "epochs": args.epochs, "lr": args.lr,
+        "dropout": args.dropout,
+        "phase": "unfrozen (full fine-tune)" if args.unfreeze else "frozen (head only)",
+        "resumed_from": args.resume or None, "augment": not args.no_augment,
+        "train_counts": c_tr, "val_counts": c_va,
+        "best_val_acc": float(max(hist.history.get("val_acc", [0]) or [0])),
+        "note": "re-test with: python resnet/eval_multiclass.py --weights <this>/best.weights.h5 "
+                f"--data {args.data} --size {args.size}",
+    })
+    print(f"Saved best weights + SavedModel + classes.txt + run_manifest.json under {out}")
 
 
 if __name__ == "__main__":

@@ -362,6 +362,32 @@ def main():
            for sp, r in zip(("train", "val", "test"), SPLIT)}
     counts = _materialize(Path(args.out), records, split_of, cap, args, rng)
     _report(counts, args.patch)
+    _write_dataset_manifest(Path(args.out), args, counts, split_of)
+
+
+def _write_dataset_manifest(out, args, counts, split_of):
+    """Record exactly how this dataset was mined (deterministic: same args + SEED -> same
+    data), so future testing can reproduce or locate it without guessing."""
+    import json, subprocess, datetime, sys as _sys
+    info = {
+        "kind": "pcb_good_bad_patches", "source": args.source, "heal": bool(args.heal),
+        "patch": args.patch, "save_size": args.save_size, "save_fmt": args.save_fmt,
+        "defect_offset": args.defect_offset, "good_per_plate": args.good_per_plate,
+        "aug": args.aug, "bad_jitter": args.bad_jitter, "shift_px": args.shift_px,
+        "rot_deg": args.rot_deg, "min_std": args.min_std, "plate_n": args.plate_n,
+        "seed": SEED, "counts": counts,
+        "template_split": {g: split_of[g] for g in sorted(split_of)},
+        "argv": " ".join(_sys.argv),
+        "regenerate": "re-run this exact command (mining is seeded/deterministic)",
+    }
+    try:
+        info["git_commit"] = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=str(ROOT)).decode().strip()
+    except Exception:
+        info["git_commit"] = "unknown"
+    info["created"] = datetime.datetime.now().isoformat(timespec="seconds")
+    (out / "dataset_manifest.json").write_text(json.dumps(info, indent=2))
+    print(f"wrote manifest -> {out / 'dataset_manifest.json'}")
 
 
 if __name__ == "__main__":

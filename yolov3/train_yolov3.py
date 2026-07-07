@@ -35,6 +35,19 @@ WEIGHTS_URL = "https://pjreddie.com/media/files/yolov3.weights"
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def save_manifest(path, info):
+    """JSON run manifest (config + provenance) next to the weights, for later re-testing."""
+    import json, subprocess, datetime
+    try:
+        info["git_commit"] = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=str(ROOT)).decode().strip()
+    except Exception:
+        info["git_commit"] = "unknown"
+    info["created"] = datetime.datetime.now().isoformat(timespec="seconds")
+    Path(path).write_text(json.dumps(info, indent=2))
+    print(f"wrote manifest -> {path}")
+
+
 def read_yaml_names(data_dir: Path):
     """Minimal data.yaml reader: returns (nc, names)."""
     names, nc = [], None
@@ -172,7 +185,18 @@ def main():
     infer.set_weights(model.get_weights())
     infer.export(str(out / "saved_model"))      # TF SavedModel
     (out / "classes.txt").write_text("\n".join(names) + "\n")
-    print(f"Saved training weights + inference SavedModel under {out}")
+    save_manifest(out / "run_manifest.json", {
+        "task": "yolov3_detection", "model": "yolov3_darknet53",
+        "weights": "yolov3_best.weights.h5", "saved_model": "saved_model", "classes": names,
+        "dataset": str(data_dir.resolve()), "dataset_name": data_dir.name,
+        "size": args.size, "batch": args.batch, "epochs": args.epochs, "lr": args.lr,
+        "phase": "unfrozen (full fine-tune)" if args.unfreeze else "frozen (backbone)",
+        "resumed_from": args.resume or None, "augment": not args.no_augment,
+        "n_train": n_train, "n_val": n_val,
+        "note": "re-test: export IR (yolov3/export_fpga.py) then analyze_openvino.py / "
+                "board_level_eval.py on --data " + str(data_dir),
+    })
+    print(f"Saved training weights + inference SavedModel + run_manifest.json under {out}")
 
 
 if __name__ == "__main__":

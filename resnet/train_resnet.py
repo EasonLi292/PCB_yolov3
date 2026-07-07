@@ -27,6 +27,20 @@ from data import make_dataset, class_weights
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def save_manifest(path, info):
+    """Write a JSON run manifest (config + provenance) next to the weights, so they can be
+    re-tested later without re-training and the exact dataset used stays recorded."""
+    import json, subprocess, datetime
+    try:
+        info["git_commit"] = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=str(ROOT)).decode().strip()
+    except Exception:
+        info["git_commit"] = "unknown"
+    info["created"] = datetime.datetime.now().isoformat(timespec="seconds")
+    Path(path).write_text(json.dumps(info, indent=2))
+    print(f"wrote manifest -> {path}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data", required=True, help="dataset dir with train/ val/ (good/ bad/)")
@@ -87,12 +101,30 @@ def main():
                                            mode="max", save_best_only=True,
                                            save_weights_only=True, verbose=1),
     ]
-    model.fit(train_ds, validation_data=val_ds, epochs=args.epochs,
-              class_weight=cw, callbacks=callbacks)
+    hist = model.fit(train_ds, validation_data=val_ds, epochs=args.epochs,
+                     class_weight=cw, callbacks=callbacks)
 
+    model.save_weights(str(out / "best.weights.h5"))   # guarantee the (restored-best) weights exist
     model.export(str(out / "saved_model"))     # inference SavedModel (for OpenVINO export)
     (out / "classes.txt").write_text("good\nbad\n")
-    print(f"Saved best weights + inference SavedModel under {out}")
+
+    def _best(metric, mode=max):
+        v = hist.history.get(metric)
+        return float(mode(v)) if v else None
+    save_manifest(out / "run_manifest.json", {
+        "task": "binary_goodbad", "model": "resnet50",
+        "weights": "best.weights.h5", "saved_model": "saved_model", "classes": ["good", "bad"],
+        "dataset": str(Path(args.data).resolve()), "dataset_name": data_dir.name,
+        "size": args.size, "batch": args.batch, "epochs": args.epochs, "lr": args.lr,
+        "dropout": args.dropout,
+        "phase": "unfrozen (full fine-tune)" if args.unfreeze else "frozen (head only)",
+        "resumed_from": args.resume or None, "augment": not args.no_augment,
+        "train_counts": c_tr, "val_counts": c_va,
+        "best_val_auc": _best("val_auc"), "best_val_acc": _best("val_acc"),
+        "note": "re-test with: python resnet/eval_resnet.py --weights <this>/best.weights.h5 "
+                f"--data {args.data} --size {args.size}",
+    })
+    print(f"Saved best weights + inference SavedModel + run_manifest.json under {out}")
 
 
 if __name__ == "__main__":
