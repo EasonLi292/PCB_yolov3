@@ -226,9 +226,16 @@ def good_tiles(img, boxes, args, rng, cap):
 
 
 def bad_tiles(img, boxes, args, rng):
-    """One window centered on each defect, jittered a few times."""
+    """One window per defect, jittered a few times. With --defect-offset F, the window is
+    shifted so the defect lands OFF-center (up to F*patch away) instead of centered — this
+    is the position augmentation for Goal 4 (teach the model defects can be anywhere)."""
+    off = getattr(args, "defect_offset", 0.0) * args.patch
     for bx0, by0, bx1, by1 in boxes:
-        yield from _emit(img, (bx0 + bx1) / 2.0, (by0 + by1) / 2.0, args, rng, args.bad_jitter)
+        cx, cy = (bx0 + bx1) / 2.0, (by0 + by1) / 2.0
+        if off:
+            cx += rng.uniform(-off, off)
+            cy += rng.uniform(-off, off)
+        yield from _emit(img, cx, cy, args, rng, args.bad_jitter)
 
 
 # ----------------------------- driver -----------------------------
@@ -293,6 +300,9 @@ def main():
     ap.add_argument("--rot-deg", type=float, default=12.0)
     ap.add_argument("--min-std", type=float, default=12.0,
                     help="min grayscale std for a GOOD tile (skip near-uniform blanks)")
+    ap.add_argument("--defect-offset", type=float, default=0.0,
+                    help="position augmentation: place each defect off-center by up to this "
+                         "fraction of --patch (0 = centered, as before; try 0.3 for Goal 4)")
     ap.add_argument("--plate-n", type=int, default=25, help="copies to median per plate")
     ap.add_argument("--save-size", type=int, default=384,
                     help="downscale each patch to this before saving (0 = keep --patch). "

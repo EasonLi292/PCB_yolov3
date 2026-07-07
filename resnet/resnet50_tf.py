@@ -32,14 +32,18 @@ from tensorflow.keras.applications.resnet import preprocess_input
 BACKBONE_NAME = "resnet50"
 
 
-def build_resnet50(size=224, dropout=0.3, weights="imagenet", freeze_backbone=True):
-    """Build the ResNet-50 good/bad classifier.
+def build_resnet50(size=224, dropout=0.3, weights="imagenet", freeze_backbone=True,
+                   n_classes=1):
+    """Build the ResNet-50 PCB classifier.
 
     Args:
         size:  square input resolution (default 224 = ImageNet native).
         dropout: dropout before the classifier head.
         weights: "imagenet" for transfer learning, or None for scratch.
         freeze_backbone: True => only the head trains (transfer phase 1).
+        n_classes: 1 => binary good/defective (sigmoid, P(defective)); the default and
+            what the FPGA export expects. >1 => multi-class defect-TYPE head (softmax),
+            used by train_multiclass.py / eval_multiclass.py.
     """
     inp = layers.Input((size, size, 3), name="input")
     base = ResNet50(include_top=False, weights=weights, pooling="avg")
@@ -47,7 +51,10 @@ def build_resnet50(size=224, dropout=0.3, weights="imagenet", freeze_backbone=Tr
     base.trainable = not freeze_backbone
     x = base(inp)                                    # -> (None, 2048)
     x = layers.Dropout(dropout, name="head_dropout")(x)
-    out = layers.Dense(1, activation="sigmoid", name="defect_prob")(x)
+    if n_classes == 1:
+        out = layers.Dense(1, activation="sigmoid", name="defect_prob")(x)
+    else:
+        out = layers.Dense(n_classes, activation="softmax", name="defect_type")(x)
     return Model(inp, out, name="resnet50_pcb")
 
 
