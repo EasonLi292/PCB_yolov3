@@ -17,6 +17,30 @@ python yolov3/preprocess_images.py         # -> datasets/unified_pku_yolo_gray64
 
 ---
 
+## ⚠️ SAVE AFTER EVERY RUN (so any experiment is re-testable later without retraining)
+
+The scripts already write everything below automatically — your only job is to **back these
+up to Google Drive** after each run (they live outside git). For each experiment, keep:
+
+1. **The trained weights** — `runs_resnet/<dataset>/best.weights.h5`
+   (YOLO: `runs/<dataset>/yolov3_best.weights.h5`) plus `saved_model/` and `classes.txt`.
+2. **The run manifest** — `runs_*/<dataset>/run_manifest.json` (config + dataset path + best
+   metric + git commit + the exact re-test command).
+3. **The dataset** — either its `dataset_manifest.json` (re-run its `argv` to regenerate it
+   exactly — mining is seeded/deterministic) **or** a zip of the dataset dir if you want the
+   test split without re-mining.
+
+Quick backup after a run (example for the 512 experiment):
+```bash
+zip -qr runs_resnet_pcb_patches_512.zip runs_resnet/pcb_patches_512   # weights + manifest
+zip -qr datasets_pcb_patches_512.zip     datasets/pcb_patches_512      # dataset (optional)
+# upload both .zip to Drive
+```
+Each goal below repeats its specific "save" line. Full details in
+[Saved artifacts & reproducibility](#saved-artifacts--reproducibility-re-test-later-without-re-training).
+
+---
+
 ## Goal 1 — Finish YOLO training & compare to the ResNet baseline
 
 **Objective.** Take the detector past the 0.408 mAP@0.5 baseline (7-epoch, frozen
@@ -59,6 +83,10 @@ next to the ResNet numbers (acc 0.981 / recall 0.997 patch-level → aggregate t
 **Deliverable.** Updated `MODEL_REPORT.md` with the new mAP and a "detector vs classifier,
 board-level" table. Sweep `--score` to trade recall vs false alarms.
 
+**Save:** `runs/unified_pku_yolo_gray640/` (weights + `run_manifest.json` + `saved_model/`)
+and the exported IR (`openvino_fpga/`). Dataset regenerates from `pcb_sources.zip` via the
+prereq build steps.
+
 ---
 
 ## Goal 2 — ResNet that classifies the defect TYPE (not just good/bad)
@@ -95,6 +123,9 @@ table. **Note:** this dataset is defects-only; keep the binary good/bad model fo
 "is there a defect at all" decision, and use this one to name the defect once found (a
 natural two-stage detector→type or good/bad→type pipeline).
 
+**Save:** `runs_resnet/pcb_defect_types/` (weights + `run_manifest.json`) and
+`datasets/pcb_defect_types/dataset_manifest.json` (regenerates the dataset).
+
 ---
 
 ## Goal 3 — ResNet at 512×512 and how accuracy changes
@@ -124,6 +155,9 @@ DLA cost) — 512² is 4× the compute of 256².
 **Deliverable.** A short `resnet/RESOLUTION_REPORT.md`: 256 vs 512 metrics side-by-side +
 the accuracy-vs-cost trade-off, and a recommendation (256/384/512) for the FPGA target.
 Remember to re-export the IR at `--size 512` if you deploy it.
+
+**Save:** `runs_resnet/pcb_patches_512/` (weights + `run_manifest.json`) and
+`datasets/pcb_patches_512/dataset_manifest.json` (or zip the dataset dir to Drive).
 
 ---
 
@@ -164,6 +198,10 @@ Also re-check overall test accuracy didn't regress.
 **Deliverable.** `resnet/POSITION_REPORT.md` with both curves and the verdict on whether
 position augmentation removes the center bias (it validates the sliding-window deployment
 assumption — a defect landing anywhere in a tile still gets caught).
+
+**Save:** `runs_resnet/pcb_patches_offcenter/` (weights + `run_manifest.json`),
+`datasets/pcb_patches_offcenter/dataset_manifest.json`, and both curve PNGs
+(`offcenter_before.png`, `offcenter_after.png`).
 
 ---
 
