@@ -102,7 +102,8 @@ def main():
             if not (0 <= cid < len(CLASSES)):
                 continue
             cls = CLASSES[cid]
-            sp = split_of[tid] if args.split_mode == "template" else mp.unit_split(tid, cls, bi)
+            sp = (split_of[tid] if args.split_mode == "template"
+                  else mp.unit_split(f"{tid}:{Path(img).stem}", cls, bi))   # per (photo, defect)
             variants = []
             for k in range(args.aug + 1):
                 if off:                                  # defect anywhere in the tile
@@ -139,7 +140,8 @@ def main():
             if plate is None:
                 continue
             for unit, patch in mp.good_tiles(plate, [], args, rng, args.good_per_plate):
-                sp = sp0 if args.split_mode == "template" else mp.unit_split(tpl, "good", unit)
+                sp = (sp0 if args.split_mode == "template"
+                      else mp.unit_split(f"{tpl}:{ppath.stem}", "good", unit))
                 if args.save_size and args.save_size != patch.shape[0]:
                     patch = cv2.resize(patch, (args.save_size, args.save_size),
                                        interpolation=cv2.INTER_AREA)

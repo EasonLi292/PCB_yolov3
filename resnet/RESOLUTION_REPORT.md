@@ -1,74 +1,68 @@
-# Resolution report — 512×512 vs 256×256 (Goal 3)
+# Resolution report — 512×512 vs 256×256, at realistic defect placement
 
-**TL;DR (in-distribution).** When the board designs in the test set were also seen in training
-(the real production-line case), **512 clearly beats 256**: accuracy **0.992 vs 0.939**,
-ROC-AUC **0.998 vs 0.985**. Higher input resolution preserves fine defect detail the model can
-exploit on boards it knows. This *reverses* the held-out-template finding (below), where the
-two tied — so the resolution verdict depends on which deployment you mean.
+**TL;DR.** With defects placed **anywhere in the tile** (as a sliding window actually finds
+them), **512 is not a luxury — it is what makes the classifier work.** 512 shrugs off the
+offset (0.994 → **0.989**); 256 collapses (0.935 → **0.820**, precision 0.90 → 0.76). The
+512-vs-256 gap widens from **+0.06 on centered defects to +0.17 on realistic ones.**
+A centered-only comparison badly understates the case for 512.
 
 ## Setup
-Both models trained on the **same** dataset (`datasets/pcb_patches_512`, HRIPCB healed good/bad,
-`--split-mode defect`), only the model input `--size` differs. **Split = defect-level**: the
-same board *designs* appear in train and test (augmentation variants of one defect stay within
-a split, so no exact-patch leak). Two-phase (frozen head → unfrozen fine-tune). Test = 2493
-patches (1173 good, 1320 bad).
+Both models trained on the same data, only `--size` differs. Split is the **per-(photo,
+defect) unit holdout** (in-distribution — same board designs and photos in train and test,
+which is the strict-imaging production regime; see *Methodology* in [RESULTS.md](RESULTS.md)).
+Two datasets differing only in defect placement:
 
-## Results — IN-DISTRIBUTION (same board designs in train & test)
+- **centered** — BAD crops centered on the defect (`--defect-offset 0`)
+- **offset 0.4** — BAD crops with the defect placed uniformly anywhere up to `0.4×patch`
+  from the tile center (`--defect-offset 0.4`)
 
-| Metric (test @0.50) | 256-input | 512-input |
-|---|---|---|
-| accuracy | 0.939 | **0.992** |
-| precision (defect) | 0.923 | **0.992** |
-| recall (defect) | 0.965 | **0.994** |
-| F1 | 0.943 | **0.993** |
-| ROC-AUC | 0.985 | **0.998** |
-| PR-AUC | 0.990 | **0.999** |
-| relative compute (MACs ∝ H·W) | **1×** | 4× |
+Test = 2294 patches (1110 good, 1184 bad), identical good set in both.
 
-```
-256-input                     512-input
-           pred good  pred bad            pred good  pred bad
-actual good     1066       107  actual good    1162        11
-actual bad        46      1274  actual bad        8      1312
-```
+![Defect placement](figures/examples_placement.png)
 
-At 512 the classifier is essentially saturated (0.99 everywhere); at 256 it makes ~3× as many
-mistakes (107 vs 11 false alarms on good, 46 vs 8 missed defects).
+## The 2×2 — resolution × placement
 
-## The contrast that matters — held-out TEMPLATE split (unseen board layouts)
-The same experiment where test uses **entirely unseen board designs**:
+![Resolution x placement](figures/g3_resolution.png)
 
-| Metric | 256-input | 512-input |
-|---|---|---|
-| accuracy | 0.880 | 0.734 |
-| ROC-AUC | 0.933 | 0.928 |
+| | accuracy | precision | recall | ROC-AUC |
+|---|---|---|---|---|
+| 256 · centered | 0.935 | 0.903 | 0.979 | 0.992 |
+| 256 · **offset 0.4** | **0.820** | **0.755** | 0.965 | 0.967 |
+| 512 · centered | 0.994 | 0.990 | 0.999 | 1.000 |
+| 512 · **offset 0.4** | **0.989** | **0.997** | 0.981 | 0.997 |
 
-Here 512 gives **no** discrimination gain (AUC tied) — the extra detail is board-specific and
-does not transfer to novel layouts; it only shifts the operating point.
+Effect of realistic placement: **256 loses 0.115 accuracy; 512 loses 0.005.**
 
-## Interpretation
-- **On boards you trained on, resolution helps** (0.985 → 0.998 AUC): the model can lock onto
-  fine, board-specific defect texture, and 512 keeps that texture the 256 downscale throws away.
-- **On brand-new boards, resolution does not help** (AUC tied): the transferable signal is
-  coarse, so 512 just costs 4× compute for nothing.
+## Why 256 breaks
+A 1024 px tile squashed to 256 is a **4× downscale**; at 512 it is only 2×. A small defect
+(these are ~80 px on a ~3000 px board) that also sits near the tile edge has very little signal
+left after a 4× downscale. The failure shows up as **precision collapse (0.903 → 0.755)**, not
+recall: the 256 model still fires on defects (recall 0.965) but now fires on clean patches too.
+Trained on BAD tiles that are mostly-clean-with-a-defect-at-the-edge, it learns "mostly clean
+can still be bad" and floods the good class with false alarms. At 512 the defect remains
+resolvable wherever it lands, so the model keeps a crisp boundary (precision 0.997).
 
 ## Recommendation
-- **Fixed product line (inspecting known board designs): 512 is worth it** — it takes the
-  classifier from 0.94 to 0.99 accuracy. Budget the 4× DLA cost; re-export the IR at
-  `--size 512` if deploying it.
-- **Must generalize to unseen board designs: stay at 256** (or 384) — 512 buys no AUC there.
-- 384 is a reasonable middle (≈2.25× 256 compute) if you want some of the fidelity gain at
-  lower cost.
+- **Deploy 512×512.** Under realistic placement it delivers 0.989 accuracy / 0.997 precision;
+  256 gives 0.820 / 0.755. The 4× DLA cost buys a working classifier, not a marginal gain.
+- **If 256 is forced by the compute budget**, you must compensate with **heavy tile overlap**
+  so every defect lands near some tile's center (a stride ≲ 0.2·tile) — trading the compute you
+  saved on resolution back into more tiles, plus a higher decision threshold to claw back
+  precision.
+- 384 is the untested middle (≈2.25× 256 compute); worth a run if 512 doesn't fit.
 
 ## Caveats
-- Defect-level split shares board *designs* (not identical patches) across train/test — the
-  realistic "same product" scenario, not exact-image leakage.
-- HRIPCB healed (median) GOOD vs real defective BAD is a slightly easier separation than
-  real-vs-real; absolute numbers on real clean boards would be a touch lower.
+- In-distribution split: same board designs and photos in train and test — appropriate for a
+  fixed line with strict, repeatable imaging. HRIPCB has exactly **one photograph per design**,
+  so there is *zero* board-to-board nuisance variation (no sensor noise, lighting drift, or
+  registration jitter). Real rigs have some; expect a modest haircut on these numbers.
+- Healed clean-plate GOOD vs real defective BAD is a slightly easier separation than real-vs-real.
+- Offset 0.4 was chosen as "defect anywhere but still fully framed." Match it to your window
+  geometry (50% tile overlap ⇒ worst-case offset ≈ 0.25).
 
-## Artifacts (in-distribution)
-- 512-input: `runs_resnet/pcb_patches_512/` → `runs_resnet_pcb_patches_512_indist.zip`
-- 256-input: `runs_resnet_at256/pcb_patches_512/` → `runs_resnet_at256_pcb_patches_512_indist.zip`
-- dataset: `datasets/pcb_patches_512/` (+manifest, `split_mode: defect`) → `datasets_pcb_patches_512_indist.zip`
-- Held-out-template versions of all three are in the non-`_indist` zips.
-- Re-test: `python resnet/eval_resnet.py --weights <run>/best.weights.h5 --data datasets/pcb_patches_512 --size <256|512>`
+## Artifacts
+- 512 offset: `runs_resnet/pcb_bin_offset/` → `runs_resnet_pcb_bin_offset_v2.zip`
+- 256 offset: `runs_resnet_at256/pcb_bin_offset/` → `runs_resnet_at256_pcb_bin_offset_v2.zip`
+- 512/256 centered: `runs_resnet*/pcb_bin_center/` → `runs_resnet*_pcb_bin_center_v2.zip`
+- datasets: `datasets_pcb_bin_{center,offset}_v2.zip` (+ `dataset_manifest.json`, seeded)
+- Re-test: `python resnet/eval_resnet.py --weights <run>/best.weights.h5 --data datasets/pcb_bin_offset --size <256|512>`

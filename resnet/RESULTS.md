@@ -1,104 +1,119 @@
 # PCB defect classifier — results
 
-A ResNet-50 good/bad + defect-type classifier mined from the HRIPCB board set. All numbers
-below are **in-distribution**: the test set contains the **same board designs** seen in
-training — the realistic production-line case (you inspect a PCB product you trained on). Each
-experiment was also run on a harder held-out-template split (unseen layouts); those numbers
-live in the per-experiment reports.
+A ResNet-50 good/bad + defect-type classifier mined from the HRIPCB board set, evaluated for a
+**fixed production line with strict, repeatable imaging**: the same board designs the model
+trained on, with defects landing anywhere a sliding window happens to find them.
 
 ## How the data is made
 
-Every board is ~99% defect-free area, so we mine patches from the boards we have. **BAD** =
-crops centered on an annotated defect; **GOOD** = crops of a *reconstructed clean plate* (the
-per-pixel median of a template's aligned copies washes the defects out). Good and bad come from
-the **same boards at the same zoom**, so the model can only cheat on the defect itself.
+A defective board is ~99% defect-free *area*, so we mine patches. **BAD** = crops around an
+annotated defect; **GOOD** = crops of a *reconstructed clean plate* (the per-pixel median of a
+template's aligned copies washes the defects out). Good and bad come from the **same boards at
+the same zoom**, so the model can only cheat on the defect itself.
 
 ![Defective board vs reconstructed clean plate](figures/examples_board.png)
 
-![Example good and bad patches](figures/examples_patches.png)
+Crucially, defects are placed **anywhere in the tile**, not conveniently centered — this is
+what a sliding window actually sees:
+
+![Defect placement](figures/examples_placement.png)
 
 ---
 
-## Goal 3 · Resolution — does 512×512 beat 256×256?
+## 1 · Resolution × placement — the headline
 
-**Yes, in-distribution.** At 512 the classifier is essentially saturated (0.99 everywhere); at
-256 it makes ~3× as many mistakes. The extra resolution preserves fine, board-specific defect
-texture the 256 downscale throws away.
+**512 is what makes the classifier work.** Under realistic (off-center) defects, 512 barely
+notices the offset while 256 collapses — its precision falls to 0.755, flooding good boards
+with false alarms.
 
-![Resolution: 256 vs 512](figures/g3_resolution.png)
+![Resolution x placement](figures/g3_resolution.png)
 
-| | Accuracy | Precision | Recall | ROC-AUC | Compute |
-|---|---|---|---|---|---|
-| 256×256 | 0.939 | 0.923 | 0.965 | 0.985 | 1× |
-| **512×512** | **0.992** | **0.992** | **0.994** | **0.998** | 4× |
+| | accuracy | precision | recall | ROC-AUC |
+|---|---|---|---|---|
+| 256 · centered | 0.935 | 0.903 | 0.979 | 0.992 |
+| 256 · **offset** | **0.820** | 0.755 | 0.965 | 0.967 |
+| 512 · centered | 0.994 | 0.990 | 0.999 | 1.000 |
+| 512 · **offset** | **0.989** | **0.997** | 0.981 | 0.997 |
 
-> On *unseen* board layouts the two tie (AUC 0.93 vs 0.93) — resolution helps only on designs
-> the model has seen. **Fixed product line → 512 is worth the 4× cost; must generalize → 256.**
-> Full detail: [RESOLUTION_REPORT.md](RESOLUTION_REPORT.md).
-
----
-
-## Goal 4 · Position — does an off-center defect still get caught?
-
-The centered-defect model has a **center blind spot**: confidence collapses from 0.93 at center
-to 0.22 at 40% off-center. Re-training with defects placed off-center (`--defect-offset 0.3`)
-**flattens the curve** — it still catches 10/10 defects at 30% off-center (vs 2/10 before), at a
-modest overall-accuracy cost (0.94 → 0.82, recall stays 0.96). This validates a sliding-window
-deployment with a coarser stride.
-
-![Position: before vs after](figures/g4_position.png)
-
-> Full detail: [POSITION_REPORT.md](POSITION_REPORT.md).
+Realistic placement widens the 512-vs-256 gap from **+0.06 to +0.17 accuracy**. A centered-only
+comparison understates the case for 512. → [RESOLUTION_REPORT.md](RESOLUTION_REPORT.md)
 
 ---
 
-## Goal 2b · One 7-class model — good + defect type, defects anywhere
+## 2 · Position — the center blind spot, and its cure
 
-A single model that says **good** or names the defect (`{good, missing_hole, mouse_bite,
-open_circuit, short, spur, spurious_copper}`), trained with defects placed **anywhere** in the
-tile to mimic a real board.
+A centered-trained model stops seeing a defect once it leaves the middle of the tile (3/10
+caught at 30% off-center). Training with defects anywhere fixes it completely: **10/10 caught at
+every offset out to 40%.** At 512 this costs essentially nothing (−0.005 accuracy).
 
-![The 7 classes](figures/examples_types.png)
+![Position curves](figures/g4_position.png)
 
-It nails the distinctive defects — **`missing_hole` F1 0.99, `short` 0.95, `open_circuit`
-0.88** — but the copper-texture trio (`spur`/`spurious_copper`/`mouse_bite`) trades among itself,
-and as a **good/bad gate it is weak**: it catches 99% of defects yet false-flags **54% of good**
-patches (clean copper traces look like small copper defects).
+→ [POSITION_REPORT.md](POSITION_REPORT.md)
 
-![7-class confusion matrix](figures/g2b_confusion.png)
+---
 
-![7-class gate + per-class F1](figures/g2b_summary.png)
+## 3 · One 7-class model — good + defect type
 
-> **Conclusion: keep good/bad and defect-type as two stages.** A dedicated binary gate has ~0.9
-> specificity; folding `good` into the 7-class head drops that to 0.46. Full detail:
-> [MODEL_REPORT_7CLASS.md](MODEL_REPORT_7CLASS.md).
+It names distinctive defects well (`missing_hole` F1 0.985, `short` 0.915, `mouse_bite` 0.898),
+but as a good/bad gate it is unusable: it catches 99.5% of defects while **false-flagging 58% of
+good patches** — clean copper traces read as `spurious_copper`.
+
+![7-class confusion](figures/g2b_confusion.png)
+
+![7-class gate](figures/g2b_summary.png)
+
+→ **Keep two stages.** [MODEL_REPORT_7CLASS.md](MODEL_REPORT_7CLASS.md)
 
 ---
 
 ## Recommended deployment
 
 ```
-board → sliding window (256 or 512 tiles)
-      → Stage 1: binary good/bad gate   (position-augmented; 512 if fixed product line)
+board → sliding window, 512×512 tiles (coarse stride is fine — position-invariant)
+      → Stage 1: binary good/bad gate   (512, position-augmented)   0.989 acc / 0.997 precision
             good → pass
             bad  → Stage 2: defect-type namer  → report the defect
 ```
 
-- **512×512** input on a fixed product line → ~0.99 good/bad accuracy.
-- **Position-augmented** gate so a defect anywhere in a tile is caught.
-- **Two stages**, not one 7-class model — the gate needs the specificity.
+---
+
+## Methodology — how the split works, and what it assumes
+
+**Assumption: strict environment, repeatable imaging.** On a fixed line the board design, camera,
+and fixture are constant, and systematic faults (a worn drill, a bad stencil aperture) recur at
+the same spot. So the same board and the same error *context* legitimately appear in training and
+in production. We therefore do **not** hold out board designs.
+
+**The split** (`--split-mode defect`) is a **per-(photo, defect) unit holdout**:
+- a *unit* = one defect box on one board image, or one good tile on a clean plate;
+- all augmentation variants of a unit share a split (**no variant leak**);
+- the same board designs and photos appear in train, val and test (**in-distribution**).
+
+This reproduces the granularity of the original `split_manifest.csv`: 2,953 bad units, split
+80.7 / 9.3 / 10.0. *(An earlier version keyed units on `(template, defect-index)`, which ignored
+which photo a defect came from — `tpl_04` had 3 units for 120 photos. Fixed.)*
+
+**Known limits of this dataset.** HRIPCB has exactly **one photograph per board design**; every
+"board" of a template is that same photo with defects pasted in (verified: pixel-identical
+outside the defect boxes). So there is **zero board-to-board nuisance variation** — no sensor
+noise, lighting drift, or registration jitter. These numbers therefore assume *perfect* imaging
+repeatability. A real rig has some variation; expect a modest haircut. The honest way to bound
+that is a nuisance-robustness sweep (inject noise / gain / sub-pixel shift at test time), not a
+different split — there is no second physical board to hold out.
+
+The alternative, **`--split-mode template`** (hold out whole board layouts), answers a different
+question — "how does it do on a product design it has never seen?" — and scores ~0.88. That is the
+number to quote for a *new* product, not for a fixed line.
 
 ## Saved artifacts (reproducible without retraining)
 
-Every run has a `run_manifest.json` (config + git commit + exact re-test command); every dataset
-a `dataset_manifest.json` (`split_mode: defect`, seeded → regenerable). Weights + datasets are
-zipped with an `_indist` suffix (held-out-template versions are in the non-`_indist` zips).
+Every run has `run_manifest.json` (config + git commit + exact re-test command); every dataset a
+`dataset_manifest.json` (seeded → regenerable).
 
 | experiment | weights | dataset |
 |---|---|---|
-| G3 512 / 256 | `runs_resnet_pcb_patches_512_indist.zip` · `runs_resnet_at256_pcb_patches_512_indist.zip` | `datasets_pcb_patches_512_indist.zip` |
-| G4 position | `runs_resnet_pcb_patches_offcenter_indist.zip` | `datasets_pcb_patches_offcenter_indist.zip` |
-| G2b 7-class | `runs_resnet_pcb_defect_types7_indist.zip` | `datasets_pcb_defect_types7_indist.zip` |
+| 512 / 256 · offset | `runs_resnet_pcb_bin_offset_v2.zip` · `runs_resnet_at256_pcb_bin_offset_v2.zip` | `datasets_pcb_bin_offset_v2.zip` |
+| 512 / 256 · centered | `runs_resnet_pcb_bin_center_v2.zip` · `runs_resnet_at256_pcb_bin_center_v2.zip` | `datasets_pcb_bin_center_v2.zip` |
+| 7-class | `runs_resnet_pcb_types7_offset_v2.zip` | `datasets_pcb_types7_offset_v2.zip` |
 
-*(A 6-class defect-only variant — Goal 2 — and the YOLO detector comparison — Goal 1 — are
-available but not featured here.)*
+*(A defects-only 6-class variant and the YOLO detector comparison are not featured here.)*

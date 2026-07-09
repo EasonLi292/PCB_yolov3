@@ -242,10 +242,19 @@ def bad_tiles(img, boxes, args, rng):
 
 # ----------------------------- driver -----------------------------
 def unit_split(group, kind, unit):
-    """Deterministic per-UNIT split (defect-level). All augmentation variants of one source
-    unit (a defect box, or a good tile) share a split, but the same board TEMPLATE appears
-    in train/val/test -> test boards share DESIGNS with training (in-distribution, the ~97%
-    regime). Contrast with the template split, which holds out whole layouts."""
+    """Deterministic per-UNIT split (defect-level, in-distribution).
+
+    A UNIT is one source thing -- a single defect box on a single board image, or a single
+    good tile on a clean plate. All augmentation variants of a unit share a split (no
+    variant leak), but the same board TEMPLATE and PHOTO appear in train/val/test, so the
+    model is tested on the board designs it will actually inspect (the strict-imaging,
+    fixed-production-line regime). Contrast with the template split, which holds out whole
+    layouts (a brand-new product design).
+
+    `group` MUST identify the source image, not just the template -- otherwise defect #0 of
+    every photo of a template collapses into one unit (that was a bug: tpl_04 had 3 units
+    for 120 photos).
+    """
     r = random.Random(f"{SEED}:{group}:{kind}:{unit}").random()
     return "train" if r < SPLIT[0] else "val" if r < SPLIT[0] + SPLIT[1] else "test"
 
@@ -269,8 +278,9 @@ def _materialize(out, records, split_of, cap, args, rng):
             continue
         gen = good_tiles(img, [], args, rng, args.good_per_plate) if kind == "good" \
             else bad_tiles(img, boxes, args, rng)
+        src = f"{rec[2]}:{Path(rec[0]).stem}"       # template + source image -> a real unit id
         for unit, patch in gen:
-            sp = split_of[rec[2]] if mode == "template" else unit_split(rec[2], kind, unit)
+            sp = split_of[rec[2]] if mode == "template" else unit_split(src, kind, unit)
             if counts[sp][kind] >= cap[sp][kind]:
                 continue
             if args.save_size and args.save_size != patch.shape[0]:

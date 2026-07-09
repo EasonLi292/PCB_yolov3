@@ -1,4 +1,13 @@
-# Defect-type classifier report — 6-class (Goal 2)
+# Defect-type classifier report — 6-class (defects-only)
+
+> ⚠️ **STALE — do not cite these numbers.** This variant was measured with an earlier
+> `--split-mode defect` implementation whose unit key was `(template, defect-index)` and so
+> ignored which *photo* a defect came from (`tpl_04` had 3 units for 120 photos). It was also
+> trained on **centered** defects only. It has not been re-run with the fixed per-(photo,
+> defect) split or a realistic offset. Use the 7-class model
+> ([MODEL_REPORT_7CLASS.md](MODEL_REPORT_7CLASS.md)) and the binary gate
+> ([RESOLUTION_REPORT.md](RESOLUTION_REPORT.md)) instead; see the Methodology section of
+> [RESULTS.md](RESULTS.md). Kept for history only.
 
 **TL;DR (in-distribution).** A ResNet-50 softmax head over the 6 HRIPCB defect classes reaches
 **top-1 0.825 / macro-F1 0.829** when the board designs were seen in training. `missing_hole`

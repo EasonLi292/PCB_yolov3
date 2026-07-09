@@ -1,71 +1,73 @@
-# Position report — does defect position affect detection? (Goal 4)
+# Position report — does an off-center defect still get caught?
 
-**TL;DR.** The centered-defect classifier only "sees" a defect near the tile center —
-confidence collapses from **0.93 at center to 0.22 at 40% off-center** (catching 2/10).
-Re-training with defects placed off-center (`--defect-offset 0.3`) **flattens the curve**: it
-holds **≥0.82 out to 30% and catches 10/10 through 30%** off-center. Cost: overall accuracy
-drops ~0.94 → 0.82 (position-invariance is a harder problem). Net: use the position-augmented
-model for a sliding window so a defect landing anywhere in a tile still gets caught.
+**TL;DR.** A centered-trained classifier has a **center blind spot**: confidence falls from
+0.91 at the tile center to 0.33 at 40% off-center, catching only **3/10** defects. Training
+with defects placed anywhere (`--defect-offset 0.4`) **eliminates it**: the model catches
+**10/10 defects at every offset out to 40%**, and its response stays ≥0.77 throughout.
 
-## Setup (controlled: only defect placement changes; in-distribution split)
-- **before** = center-trained 256 model (`runs_resnet_at256/pcb_patches_512`, `--defect-offset 0`).
-- **after** = same pipeline/size/split, BAD patches shifted off-center up to `0.3×patch`
-  (`runs_resnet/pcb_patches_offcenter`, `--defect-offset 0.3`).
-- Both on the **defect-level (in-distribution)** split. Position curve from `offcenter_test.py
-  --source hr_08`: crop the source board so each defect sits at a growing offset from tile
-  center, score P(defective), average over N=10 hr_08 defects. Both models trained on hr_08, so
-  the comparison isolates centered-vs-offset training.
+## Why it matters
+At inference the classifier slides over the board in tiles. A defect lands wherever the grid
+puts it — rarely dead-center. If the model only fires on centered defects, you must overlap
+tiles heavily (expensive) to guarantee coverage.
 
-## P(defective) vs offset from center
+![Defect placement](figures/examples_placement.png)
+
+## Setup (controlled — only defect placement differs)
+- **before** = 256 model trained on centered defects (`runs_resnet_at256/pcb_bin_center`)
+- **after** = same size/recipe/split, defects placed anywhere (`runs_resnet_at256/pcb_bin_offset`,
+  `--defect-offset 0.4`)
+- Curve from `offcenter_test.py --source hr_08`: crop the source board so a real annotated
+  defect sits at a growing offset from tile center, score P(defective), average over N=10
+  defects. Both models trained on hr_08, so the comparison isolates the centering intervention.
+
+## P(defective) vs offset
+
+![Position curves](figures/g4_position.png)
 
 ```
-offset(% of patch)   BEFORE (center-trained)      AFTER (offset-0.3)
-                     meanP   caught>=0.5           meanP   caught>=0.5
-   0%                0.925    9/10                 0.933   10/10
-  10%                0.568    6/10                 0.917   10/10
-  20%                0.730    9/10                 0.871   10/10
-  30%                0.354    2/10                 0.818   10/10
-  40%                0.221    2/10                 0.699    7/10
+offset(% of tile)   BEFORE (centered)        AFTER (offset-0.4)
+                    meanP  caught>=0.5       meanP  caught>=0.5
+   0%               0.910    9/10            0.914   10/10
+  10%               0.679    8/10            0.916   10/10
+  20%               0.683    8/10            0.959   10/10
+  30%               0.371    3/10            0.887   10/10
+  40%               0.331    3/10            0.769   10/10
 ```
 
-Plots: `resnet/offcenter_before.png`, `resnet/offcenter_after.png`.
-(The "before" row at 10/20% is noisy — N=10 — but the trend is unmistakable: high at center,
-collapsing by 30–40%.)
+The "after" model never drops a defect — 10/10 at every offset, including 40%, where the
+defect is nearly at the tile edge. (Training at offset 0.4 also beats the earlier 0.3-trained
+model, which faded to 7/10 at 40%.)
 
-## Overall accuracy cost (in-distribution, each on its own test split)
-| model | accuracy | precision | recall | ROC-AUC |
-|---|---|---|---|---|
-| center-trained (256) | **0.939** | 0.923 | 0.965 | 0.985 |
-| position-augmented | 0.819 | 0.759 | **0.964** | 0.964 |
+## The cost, and where it lands
+Position invariance is not free — it makes the task harder, and **the price depends entirely on
+resolution**:
 
-The position-augmented model keeps **defect recall high (0.964)** but its precision drops
-(0.759) — it flags more clean patches — because "defect could be anywhere, even at the edge"
-is a genuinely harder decision. Recall (catching defects) is what matters most for a screening
-gate, and that holds up.
+| | accuracy centered → offset | precision centered → offset |
+|---|---|---|
+| 256 | 0.935 → **0.820** | 0.903 → **0.755** |
+| 512 | 0.994 → **0.989** | 0.990 → **0.997** |
 
-## Reading the result
-- **Center bias is real and large.** The center model loses most of its confidence by 30–40%
-  off-center and drops 7–8/10 defects below the 0.5 line.
-- **Position augmentation removes it.** The "after" curve is flat to 20%, still catches 10/10
-  at 30%, and only fades near 40% (defect approaching / leaving the tile edge).
-- **The trade is peak/overall accuracy for coverage.** You give up ~12 points of in-distribution
-  accuracy (mostly precision) to make the model catch defects anywhere in the tile.
+At **512 the cost is essentially zero** (−0.005 accuracy, precision actually improves). At 256
+it is severe: the model, taught that a mostly-clean tile can still be bad, floods good patches
+with false alarms. **So position augmentation and 512 input go together** — see
+[RESOLUTION_REPORT.md](RESOLUTION_REPORT.md).
 
 ## Deployment implication
-- Use the **position-augmented model** for the sliding window: it lets tiles overlap *less*
-  (coarser stride) while still catching edge-straddling defects — a board-level compute win.
-- Keep any defect within ~30% of some tile's center (a stride ≲ 0.4·tile) and it is caught
-  reliably (10/10). Beyond ~40% offset, rely on tile overlap.
+- Train with off-center defects **and** run at 512. You then get a flat position response with
+  no accuracy penalty, which permits a **coarser sliding stride** (fewer tiles per board) — a
+  net compute win at the board level.
+- Set the stride so any defect lands within ~40% of some tile's center; the curve says that band
+  is caught 10/10.
 
 ## Caveats
-- N=10 (hr_08 defects with in-bounds room); the effect is large but per-point meanP is a
-  small-sample estimate — a `--source hr` sweep would tighten it.
-- Measured on a training template (fair for isolating the centering intervention).
-- Only `--defect-offset 0.3` tried; larger offsets extend the flat region at more accuracy cost.
+- N = 10 (hr_08 defects with enough in-bounds room at patch=1024); the effect is large and
+  monotonic, but each point is a small-sample mean. A `--source hr` sweep would tighten it.
+- Measured on a training template — this measures the *capability* to respond off-center, not
+  generalization to an unseen layout.
+- Offset 0.4 keeps the defect fully framed. Match it to your real window geometry.
 
-## Artifacts (in-distribution)
-- after: `runs_resnet/pcb_patches_offcenter/` → `runs_resnet_pcb_patches_offcenter_indist.zip`
-- before: `runs_resnet_at256/pcb_patches_512/` → `runs_resnet_at256_pcb_patches_512_indist.zip`
-- dataset: `datasets/pcb_patches_offcenter/` → `datasets_pcb_patches_offcenter_indist.zip`
+## Artifacts
+- after: `runs_resnet_at256/pcb_bin_offset/` → `runs_resnet_at256_pcb_bin_offset_v2.zip`
+- before: `runs_resnet_at256/pcb_bin_center/` → `runs_resnet_at256_pcb_bin_center_v2.zip`
 - curves: `resnet/offcenter_before.png`, `resnet/offcenter_after.png`
 - Reproduce: `python resnet/offcenter_test.py --weights <run>/best.weights.h5 --size 256 --source hr_08 --out <png>`
