@@ -7,12 +7,13 @@ __pycache__/
 # Training artifacts (gitignore does not allow inline comments)
 # weights/      = downloaded pretrained yolov3.weights (237 MB)
 # runs/         = YOLO checkpoints, SavedModels, OpenVINO IR, logs
-# runs_resnet/  = ResNet classifier checkpoints / SavedModels
+# runs_resnet*/ = ResNet classifier checkpoints / SavedModels (incl. _at256, _ft variants)
 # resnet/extra_good/ = downloaded "good board" images (see resnet/README.md)
 weights/
 runs/
-runs_resnet/
+runs_resnet*/
 resnet/extra_good/
+*.log
 
 # Datasets are large binary data — keep them out of git.
 # Track scripts/ and datasets/README.md; ignore the image/label payloads.

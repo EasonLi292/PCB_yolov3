@@ -221,7 +221,8 @@ def good_tiles(img, boxes, args, rng, cap):
         tile = img[max(0, y0):y0 + ps, max(0, x0):x0 + ps]
         if tile.size == 0 or float(cv2.cvtColor(tile, cv2.COLOR_BGR2GRAY).std()) < args.min_std:
             continue
-        yield from _emit(img, cx, cy, args, rng, args.aug)
+        for p in _emit(img, cx, cy, args, rng, args.aug):   # yield (unit_id, patch)
+            yield kept, p
         kept += 1
 
 
@@ -230,41 +231,54 @@ def bad_tiles(img, boxes, args, rng):
     shifted so the defect lands OFF-center (up to F*patch away) instead of centered — this
     is the position augmentation for Goal 4 (teach the model defects can be anywhere)."""
     off = getattr(args, "defect_offset", 0.0) * args.patch
-    for bx0, by0, bx1, by1 in boxes:
+    for bi, (bx0, by0, bx1, by1) in enumerate(boxes):
         cx, cy = (bx0 + bx1) / 2.0, (by0 + by1) / 2.0
         if off:
             cx += rng.uniform(-off, off)
             cy += rng.uniform(-off, off)
-        yield from _emit(img, cx, cy, args, rng, args.bad_jitter)
+        for p in _emit(img, cx, cy, args, rng, args.bad_jitter):   # yield (unit_id, patch)
+            yield bi, p
 
 
 # ----------------------------- driver -----------------------------
+def unit_split(group, kind, unit):
+    """Deterministic per-UNIT split (defect-level). All augmentation variants of one source
+    unit (a defect box, or a good tile) share a split, but the same board TEMPLATE appears
+    in train/val/test -> test boards share DESIGNS with training (in-distribution, the ~97%
+    regime). Contrast with the template split, which holds out whole layouts."""
+    r = random.Random(f"{SEED}:{group}:{kind}:{unit}").random()
+    return "train" if r < SPLIT[0] else "val" if r < SPLIT[0] + SPLIT[1] else "test"
+
+
 def _materialize(out, records, split_of, cap, args, rng):
-    """records: list of (kind, board_rec). kind in {'good','bad'}."""
+    """records: list of (kind, board_rec). kind in {'good','bad'}.
+    args.split_mode 'template' -> whole board/plate to one split (held-out layouts);
+                    'defect'   -> per-unit split (same designs in all splits, in-distribution)."""
     if out.exists():
         shutil.rmtree(out)
     counts = {sp: {"good": 0, "bad": 0} for sp in ("train", "val", "test")}
     random.Random(SEED + 1).shuffle(records)
+    params = [cv2.IMWRITE_JPEG_QUALITY, 95] if args.save_fmt == "jpg" else []
+    mode = getattr(args, "split_mode", "template")
+    splits = ("train", "val", "test")
     for kind, rec in records:
-        sp = split_of[rec[2]]
-        if counts[sp][kind] >= cap[sp][kind]:
-            continue
+        if all(counts[sp][kind] >= cap[sp][kind] for sp in splits):
+            continue                       # this kind's caps all full -> don't load the board
         img, boxes = load_board(rec, args)
         if img is None:
             continue
-        gen = good_tiles(img, [] if kind == "good" else boxes, args, rng,
-                         args.good_per_plate if kind == "good" else 0) if kind == "good" \
+        gen = good_tiles(img, [], args, rng, args.good_per_plate) if kind == "good" \
             else bad_tiles(img, boxes, args, rng)
-        for patch in gen:
+        for unit, patch in gen:
+            sp = split_of[rec[2]] if mode == "template" else unit_split(rec[2], kind, unit)
             if counts[sp][kind] >= cap[sp][kind]:
-                break
+                continue
             if args.save_size and args.save_size != patch.shape[0]:
                 patch = cv2.resize(patch, (args.save_size, args.save_size),
                                    interpolation=cv2.INTER_AREA)
             d = out / sp / kind
             d.mkdir(parents=True, exist_ok=True)
             fn = f"{rec[2]}_{counts[sp][kind]:06d}.{args.save_fmt}"
-            params = [cv2.IMWRITE_JPEG_QUALITY, 95] if args.save_fmt == "jpg" else []
             cv2.imwrite(str(d / fn), patch, params)
             counts[sp][kind] += 1
     return counts
@@ -303,6 +317,10 @@ def main():
     ap.add_argument("--defect-offset", type=float, default=0.0,
                     help="position augmentation: place each defect off-center by up to this "
                          "fraction of --patch (0 = centered, as before; try 0.3 for Goal 4)")
+    ap.add_argument("--split-mode", choices=["template", "defect"], default="template",
+                    help="template = hold out whole board layouts (harder generalization test); "
+                         "defect = split individual defects/tiles so the SAME board designs "
+                         "appear in train AND test (in-distribution, the ~97%% deployment regime)")
     ap.add_argument("--plate-n", type=int, default=25, help="copies to median per plate")
     ap.add_argument("--save-size", type=int, default=384,
                     help="downscale each patch to this before saving (0 = keep --patch). "
@@ -371,6 +389,7 @@ def _write_dataset_manifest(out, args, counts, split_of):
     import json, subprocess, datetime, sys as _sys
     info = {
         "kind": "pcb_good_bad_patches", "source": args.source, "heal": bool(args.heal),
+        "split_mode": args.split_mode,
         "patch": args.patch, "save_size": args.save_size, "save_fmt": args.save_fmt,
         "defect_offset": args.defect_offset, "good_per_plate": args.good_per_plate,
         "aug": args.aug, "bad_jitter": args.bad_jitter, "shift_px": args.shift_px,
