@@ -1,0 +1,33 @@
+{
+  "task": "binary_goodbad",
+  "model": "resnet50",
+  "weights": "best.weights.h5",
+  "saved_model": "saved_model",
+  "classes": [
+    "good",
+    "bad"
+  ],
+  "dataset": "/home/ubuntu-eason/Downloads/PCB_yolov3/datasets/pcb_bin_center",
+  "dataset_name": "pcb_bin_center",
+  "size": 512,
+  "batch": 16,
+  "epochs": 25,
+  "lr": 1e-05,
+  "dropout": 0.3,
+  "phase": "unfrozen (full fine-tune)",
+  "resumed_from": "runs_resnet_v3/pcb_bin_center/best.weights.h5",
+  "augment": true,
+  "train_counts": {
+    "good": 9588,
+    "bad": 9532
+  },
+  "val_counts": {
+    "good": 1302,
+    "bad": 1096
+  },
+  "best_val_auc": 0.9981983304023743,
+  "best_val_acc": 0.9929107427597046,
+  "note": "re-test with: python resnet/eval_resnet.py --weights <this>/best.weights.h5 --data datasets/pcb_bin_center --size 512",
+  "git_commit": "0992b0c",
+  "created": "2026-07-09T14:48:03"
+}

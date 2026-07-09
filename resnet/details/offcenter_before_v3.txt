@@ -1,0 +1,7 @@
+offset%   meanP    caught>=0.5
+     0%   0.856    9/10
+    10%   0.450    4/10
+    20%   0.355    3/10
+    30%   0.205    2/10
+    40%   0.016    0/10
+saved plot -> resnet/offcenter_before.png

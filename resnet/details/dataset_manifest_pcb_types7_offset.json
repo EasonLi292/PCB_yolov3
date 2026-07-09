@@ -1,0 +1,70 @@
+{
+  "kind": "pcb_defect_types",
+  "classes": [
+    "good",
+    "missing_hole",
+    "mouse_bite",
+    "open_circuit",
+    "short",
+    "spur",
+    "spurious_copper"
+  ],
+  "source": "hripcb",
+  "split_mode": "defect",
+  "patch": 1024,
+  "save_size": 384,
+  "save_fmt": "jpg",
+  "aug": 4,
+  "shift_px": 12.0,
+  "rot_deg": 12.0,
+  "seed": 42,
+  "defect_offset": 0.4,
+  "good_per_plate": 250,
+  "plate_n": 25,
+  "min_std": 12.0,
+  "counts": {
+    "train": {
+      "good": 10040,
+      "missing_hole": 1990,
+      "mouse_bite": 1945,
+      "open_circuit": 1955,
+      "short": 2005,
+      "spur": 1990,
+      "spurious_copper": 2065
+    },
+    "val": {
+      "good": 1350,
+      "missing_hole": 225,
+      "mouse_bite": 205,
+      "open_circuit": 240,
+      "short": 260,
+      "spur": 225,
+      "spurious_copper": 185
+    },
+    "test": {
+      "good": 1110,
+      "missing_hole": 270,
+      "mouse_bite": 310,
+      "open_circuit": 215,
+      "short": 190,
+      "spur": 225,
+      "spurious_copper": 265
+    }
+  },
+  "template_split": {
+    "tpl_01": "test",
+    "tpl_04": "test",
+    "tpl_05": "train",
+    "tpl_06": "train",
+    "tpl_07": "val",
+    "tpl_08": "train",
+    "tpl_09": "train",
+    "tpl_10": "train",
+    "tpl_11": "train",
+    "tpl_12": "val"
+  },
+  "argv": "resnet/mine_defect_types.py --split-mode defect --defect-offset 0.4 --good-per-plate 250 --out datasets/pcb_types7_offset",
+  "regenerate": "re-run this exact command (mining is seeded/deterministic)",
+  "git_commit": "ed50a51",
+  "created": "2026-07-09T11:33:56"
+}

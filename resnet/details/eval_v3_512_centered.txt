@@ -1,0 +1,23 @@
+test: 2294 images  {'good': 1110, 'bad': 1184}
+
+== Confusion matrix @ threshold 0.50  (positive = defective) ==
+               pred good   pred bad
+  actual good      1103          7
+  actual bad          6       1178
+
+accuracy            : 0.994
+precision (defect)  : 0.994
+recall    (defect)  : 0.995   <- fraction of bad boards caught
+F1        (defect)  : 0.995
+ROC-AUC             : 1.000
+PR-AUC  (defect)    : 1.000
+
+== threshold sweep ==
+  thr   acc   prec   recall
+  0.2  0.990  0.983  0.997
+  0.3  0.993  0.990  0.996
+  0.4  0.993  0.992  0.996
+  0.5  0.994  0.994  0.995
+  0.6  0.996  0.997  0.995
+  0.7  0.995  0.998  0.992
+  0.8  0.995  0.998  0.992

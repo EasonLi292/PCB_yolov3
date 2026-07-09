@@ -1,0 +1,48 @@
+{
+  "kind": "pcb_good_bad_patches",
+  "source": "hripcb",
+  "heal": true,
+  "split_mode": "defect",
+  "patch": 1024,
+  "save_size": 512,
+  "save_fmt": "jpg",
+  "defect_offset": 0.0,
+  "good_per_plate": 400,
+  "aug": 2,
+  "bad_jitter": 3,
+  "shift_px": 12.0,
+  "rot_deg": 12.0,
+  "min_std": 12.0,
+  "plate_n": 25,
+  "seed": 42,
+  "counts": {
+    "train": {
+      "good": 9588,
+      "bad": 9532
+    },
+    "val": {
+      "good": 1302,
+      "bad": 1096
+    },
+    "test": {
+      "good": 1110,
+      "bad": 1184
+    }
+  },
+  "template_split": {
+    "tpl_01": "test",
+    "tpl_04": "test",
+    "tpl_05": "train",
+    "tpl_06": "train",
+    "tpl_07": "val",
+    "tpl_08": "train",
+    "tpl_09": "train",
+    "tpl_10": "train",
+    "tpl_11": "train",
+    "tpl_12": "val"
+  },
+  "argv": "resnet/mine_patches.py --heal --split-mode defect --save-size 512 --out datasets/pcb_bin_center",
+  "regenerate": "re-run this exact command (mining is seeded/deterministic)",
+  "git_commit": "ed50a51",
+  "created": "2026-07-09T11:21:40"
+}
