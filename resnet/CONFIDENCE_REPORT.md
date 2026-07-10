@@ -1,111 +1,62 @@
 # ResNet-50 PCB Classifier — Confidence-Score Distribution
 
-How the model's output `P(defective)` is distributed across the test set
-(`datasets/pcb_patches/test`, 2,384 patches, FP32), color-coded by true class and by
-whether the prediction is correct. Companion to [`MODEL_REPORT.md`](MODEL_REPORT.md).
+How the model's output `P(defective)` is distributed across the test set, by true class.
+Companion to [`MODEL_REPORT.md`](MODEL_REPORT.md). All numbers are the **v3 in-distribution**
+run (2,294 test patches: 1,110 good / 1,184 defective), with defects **placed randomly** in the
+tile — the realistic "defect could be anywhere" regime. Two configs shown: the **512 deployment
+model** and **256** for contrast.
 
-**Color key:** 🟩 green = truly **good**, 🟥 red = truly **defective**. Dashed line = the
-0.5 decision threshold. Good patches *should* sit near 0, defective near 1.
+**Color key:** 🟦 blue = truly **good**, 🟥 red = truly **defective**. Dashed line = the 0.5
+decision threshold. Good patches *should* sit near 0, defective near 1.
 
-![confidence distribution](confidence_distribution.png)
-
-## Reading the three panels
-
-1. **Log histogram (top)** — shows the full shape. The two classes are almost completely
-   separated and pile up at the extremes: good against 0, defective against 1. The shaded
-   tints mark the "wrong side" of the threshold for each class.
-2. **Linear, clipped to 60 (middle)** — the spikes at 0 and 1 run off-chart on purpose so
-   the **contested middle** is legible. This is the only region where errors can occur;
-   the arrows point at the 4 false negatives (defect scored < 0.5) and the 41 false
-   positives (good scored ≥ 0.5).
-3. **Per-patch strip (bottom)** — every test patch as one dot at its score, good on the
-   lower row, defective on the upper. Correct predictions are faint dots; **misclassified
-   patches are ringed and ×-marked** so you can spot exactly where and how many.
+![confidence distribution](figures/confidence_distribution_v3.png)
 
 ## What the distribution says
 
-| | mean | median | piled at its correct extreme |
-|---|---|---|---|
-| **good** (🟩) | 0.059 | 0.005 | 86.5 % score < 0.1 |
-| **defective** (🟥) | 0.994 | 1.000 | 98.5 % score > 0.9 |
+| config | good mean | bad mean | good < 0.1 | bad > 0.9 | contested 0.1–0.9 (good / bad) | FP / FN @0.5 |
+|---|---|---|---|---|---|---|
+| **512 offset** (deployment) | 0.127 | 0.981 | 60.6% | 96.4% | 477 (435 / 42) | 31 / 18 |
+| 512 centered | 0.023 | 0.994 | 95.1% | 99.0% | 63 (53 / 10) | 7 / 6 |
+| 256 offset | 0.215 | 0.926 | 41.5% | 86.3% | 791 (645 / 146) | 124 / 79 |
 
-- **The model is decisive, not hedging.** Almost every patch lands within 0.1 of 0 or 1;
-  only **172 of 2,384 patches (7 %)** fall in the contested 0.1–0.9 band — and that band
-  is **155 good vs. 17 defective**, i.e. the uncertainty is overwhelmingly on the good
-  side (the model second-guesses clean patches far more than defective ones).
-- **Errors live at the boundary, and they're lopsided the safe way.** All 45 mistakes
-  (41 FP + 4 FN) sit near 0.5. Because false alarms (good→defect) outnumber misses
-  (defect→good) **10 : 1**, the failure mode is *over-cautious* — the right direction for
-  a screen whose expensive mistake is shipping a bad board.
-- **The 4 missed defects barely cross the line.** Three score 0.35–0.49 (a lower
-  threshold recovers them); only one is a confident miss at 0.066. See
-  [`false_negatives.jpg`](false_negatives.jpg).
-- **Well-conditioned for lower precision.** With scores this far from 0.5, FP16 moved only
-  2 predictions ([`MODEL_REPORT_FP16.md`](MODEL_REPORT_FP16.md)) — the wide margin is why
-  precision reduction is nearly free here.
+- **The model is decisive, not hedging.** Even in the hardest case (256, random placement), the
+  defective class piles hard against 1 (86% score > 0.9). At 512 the two classes are almost
+  completely separated — only 477 of 2,294 patches fall in the contested 0.1–0.9 band, and just 63
+  when defects are centered.
+- **Errors live at the boundary, and they're lopsided the safe way.** In the 512 deployment model
+  the contested band is **435 good vs. 42 defective** — the uncertainty is ~10× more on the good
+  side. The model second-guesses clean patches far more than defective ones, so the failure mode is
+  **over-cautious** (31 false alarms vs. 18 misses) — the right direction for a screen whose
+  expensive mistake is shipping a bad board.
+- **Random placement is what widens the good lobe.** Going centered→offset lifts the good mean
+  0.023→0.127 (512) and 0.076→0.215 (256): a defect at the tile edge leaves some BAD tiles
+  mostly-clean, so the model grows warier of genuinely clean tiles. Resolution counteracts it —
+  512-offset (477 contested) is still tighter than 256-*centered* (251) would suggest is easy.
 
-## Where the model is *confidently* wrong
+## Where the model is confidently wrong
 
-Most errors hedge near 0.5, but a few are confident — those are the informative ones.
-Only **7 false positives score ≥ 0.90** and **exactly 1 false negative scores ≤ 0.15**.
+The confident false positives are **clean patches from the healed plates** (defect-free *by
+construction* — not label noise) whose local morphology mimics a defect: isolated copper stubs and
+trace terminations read as **spur / spurious_copper**; tightly-spaced parallel traces and IC pin
+arrays read as **short**; via clusters resemble **mouse-bite / open-circuit**. The root cause is
+inherent to a **context-free patch** classifier — it has over-learned the local copper-blob / gap /
+bridge shapes and can't see enough surrounding board to tell a *designed* trace-end from a *spur*.
+This is a **data lever, not a threshold one** (these sit at 0.9+, far from 0.5): feed the exact
+clean-but-defect-like regions back as **hard negatives**.
 
-![confident errors](confident_errors.jpg)
-
-In the figure the false-negative defects are **boxed in magenta** at their real annotated
-size and class (recovered by matching each patch back to its HRIPCB source image; the box
-is centered because bad tiles are cropped centered on the defect). The false positives get
-**no box** — they are labeled *"clean — no defect"* because there genuinely is nothing to
-find, which is the whole point of the error.
-
-**Confident false positives (clean → sure it's defective).** These "good" patches come
-from the **healed clean plates**, so they are defect-free *by construction* — this is not
-label noise. The model is genuinely fooled by clean structures that mimic defect
-morphology:
-
-- isolated copper stubs / trace terminations (0.996, 0.982) → look like a **spur** /
-  **spurious_copper**;
-- tightly-spaced parallel traces and IC pin arrays (0.990, 0.892) → look like a **short**;
-- trace corners and via clusters (0.956, 0.938) → resemble **mouse-bite** / **open-circuit**.
-
-Two signs it's *systematic*, not random noise:
-1. **Template 01 dominates** — 7 of the top 12 confident FPs are `tpl_01`; that layout has
-   a motif the model reliably misreads.
-2. **Jitter siblings fail together** — `u00280_v0` (0.926) and `u00280_v1` (0.909) are the
-   same region shifted a few pixels, both confidently wrong. Noise would scatter; the
-   *feature itself* triggers it.
-
-The root cause is inherent to a context-free patch classifier: it has over-learned the
-local "copper-blob / gap / bridge" shapes and can't see enough surrounding board to tell a
-*designed* trace-end from a *spur*.
-
-**The confident miss (P = 0.066).** `tpl_08_bad_u01638_v0` is a **mouse-bite** in an
-LED/pad-array region — a long row of near-identical pads where the small notch hides in the
-repetition. Its jitter sibling `u01638_v3` (a **short**, P = 0.432) was nearly caught, so
-these sit right at the visibility floor rather than being gross failures. The fourth,
-`u00128_v3` (0.489, just under the line), is another **mouse-bite**. The remaining tile
-`u01867_v0` (0.351) could **not** be reliably matched back to a source image (best
-correlation 0.30), so its class is left **unresolved** (yellow box) rather than guessed.
-
-**Why these are missed — resolution.** Each patch is stored at **384×384**, made by
-cropping a **1024 px** region of the ~2,150 px source board and downscaling it ~2.7×; the
-model then trains at **256 px**. So a real 40–60 px defect is only ~15–22 px in the stored
-patch and ~10–15 px at train time — a handful of pixels inside a busy 256 px frame. That
-low effective resolution, not a modelling flaw, is the direct cause of the subtle-defect
-misses. The lever is to re-mine with more defect signal in-frame: a larger `--save-size`
-(e.g. 512) or a tighter `--patch` (more zoom per defect).
-
-**Fixing the confident errors is a data lever, not a threshold one** (they're at 0.9+, far
-from 0.5): feed these exact clean-but-defect-like regions back as **hard negatives**, add
-more template-01 clean variety, and give subtle defects more signal in-frame (tighter crop
-/ larger `--save-size`).
+The confident misses are the smallest defects downscaled into a busy frame — a real 40–60 px defect
+becomes ~15 px in the tile and a handful of pixels at 256 train size. The lever is more defect
+signal in-frame (larger input / tighter crop) — which is exactly why **512 more than halves the
+misses** (18 vs. 79 at 256), and why the [resolution analysis](MODEL_REPORT.md#6-resolution--and-why-256-is-not-obsolete)
+matters.
 
 ## Practical takeaway
 
-The clean bimodal separation means the 0.5 threshold is not
-delicate — you can slide it toward 0.4 to catch the borderline misses (trading a few more
-false alarms) or toward 0.7 to cut false alarms (barely touching recall), and the sweep
-in [`MODEL_REPORT.md`](MODEL_REPORT.md) quantifies each choice. The **confident** errors,
-however, won't move with the threshold — they need harder training data.
+The clean bimodal separation means the 0.5 threshold is not delicate — slide toward 0.4 to catch
+borderline misses (a few more false alarms) or toward 0.7 to cut false alarms (barely touching
+recall); the sweep in [`MODEL_REPORT.md`](MODEL_REPORT.md) quantifies each choice. The **confident**
+errors won't move with the threshold — they need harder training data (hard negatives) and more
+in-frame defect signal.
 
-*Reproduce:* run `eval_resnet.py` to get per-patch scores, then plot `P(defective)`
-histograms split by label. Figure: `resnet/confidence_distribution.png`.
+*Reproduce:* run `eval_resnet.py` for per-patch scores, or the scorer that produced
+`resnet/details/confidence_v3.json`; figure `resnet/figures/confidence_distribution_v3.png`.

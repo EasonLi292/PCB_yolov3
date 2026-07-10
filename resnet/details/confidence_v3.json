@@ -1,0 +1,58 @@
+{
+  "256_centered": {
+    "n": 2294,
+    "n_good": 1110,
+    "n_bad": 1184,
+    "good_mean": 0.0761,
+    "good_median": 0.0028,
+    "bad_mean": 0.9654,
+    "bad_median": 1.0,
+    "good_below_0.1_pct": 82.8,
+    "bad_above_0.9_pct": 93.5,
+    "contested_0.1_0.9": 251,
+    "contested_good": 180,
+    "contested_bad": 71
+  },
+  "256_offset": {
+    "n": 2294,
+    "n_good": 1110,
+    "n_bad": 1184,
+    "good_mean": 0.2149,
+    "good_median": 0.1622,
+    "bad_mean": 0.9255,
+    "bad_median": 1.0,
+    "good_below_0.1_pct": 41.5,
+    "bad_above_0.9_pct": 86.3,
+    "contested_0.1_0.9": 791,
+    "contested_good": 645,
+    "contested_bad": 146
+  },
+  "512_centered": {
+    "n": 2294,
+    "n_good": 1110,
+    "n_bad": 1184,
+    "good_mean": 0.0232,
+    "good_median": 0.0046,
+    "bad_mean": 0.9942,
+    "bad_median": 1.0,
+    "good_below_0.1_pct": 95.1,
+    "bad_above_0.9_pct": 99.0,
+    "contested_0.1_0.9": 63,
+    "contested_good": 53,
+    "contested_bad": 10
+  },
+  "512_offset": {
+    "n": 2294,
+    "n_good": 1110,
+    "n_bad": 1184,
+    "good_mean": 0.1266,
+    "good_median": 0.0664,
+    "bad_mean": 0.9814,
+    "bad_median": 1.0,
+    "good_below_0.1_pct": 60.6,
+    "bad_above_0.9_pct": 96.4,
+    "contested_0.1_0.9": 477,
+    "contested_good": 435,
+    "contested_bad": 42
+  }
+}

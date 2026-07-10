@@ -46,8 +46,9 @@ Per-class P / R / F1:
 | false-alarm rate on good | **0.577** |
 | overall good/bad accuracy | 0.749 |
 
-The **dedicated binary gate**, on the same data and placement, reaches **0.989 accuracy with
-0.997 precision** at 512. The 7-class head throws that away.
+The **dedicated binary gate**, on the same data and placement, reaches **0.984 accuracy / 0.985
+recall** at 512 (0.997 precision at a higher threshold) — see [`MODEL_REPORT.md`](MODEL_REPORT.md).
+The 7-class head throws that away.
 
 ## Why the good/bad boundary blurs
 - **`good → spurious_copper` (507) and `good → spur` (101)** — clean copper traces read as small
@@ -64,7 +65,7 @@ The residual difficulty is entirely the copper-texture family.
 
 ## Recommendation
 ```
-Stage 1: binary good/bad gate  (512 input, position-augmented)  -> 0.989 acc / 0.997 precision
+Stage 1: binary good/bad gate  (512 input, position-augmented)  -> 0.984 acc / 0.985 recall
 Stage 2: defect-type namer, only on tiles Stage 1 flagged bad
 ```
 - Do **not** fold `good` into the type head — it costs ~0.57 in specificity.

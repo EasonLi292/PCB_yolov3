@@ -15,7 +15,7 @@ Examples:
   python resnet/train_resnet.py --data datasets/pcb_goodbad --resume runs_resnet/pcb_goodbad/best.weights.h5 \
          --unfreeze --lr 1e-5 --epochs 15
 """
-import argparse, os, sys, time
+import argparse, os, sys
 from pathlib import Path
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
@@ -41,36 +41,13 @@ def save_manifest(path, info):
     print(f"wrote manifest -> {path}")
 
 
-class Throttle(tf.keras.callbacks.Callback):
-    """Cap the GPU duty cycle to keep sustained board power below the PSU trip point.
-
-    This box hard-power-cuts under a continuously pegged H100 (even at the 200W floor,
-    which is the lowest -pl allows). Sleeping `frac` x (step time) after each batch lets
-    the GPU idle between steps, so AVERAGE power ~= peak / (1 + frac) -- recreating the
-    burstier pattern that ran crash-free at 256px. frac=0.6 -> ~62% duty. 0 disables it.
-    tf.data prefetch keeps the next batch ready during the sleep, so only the GPU idles.
-    """
-    def __init__(self, frac):
-        super().__init__()
-        self.frac = max(0.0, float(frac))
-        self._t = None
-
-    def on_train_batch_begin(self, batch, logs=None):
-        self._t = time.perf_counter()
-
-    def on_train_batch_end(self, batch, logs=None):
-        if self.frac > 0 and self._t is not None:
-            time.sleep((time.perf_counter() - self._t) * self.frac)
-
-
 class AtomicLastCheckpoint(tf.keras.callbacks.Callback):
-    """Power-loss-durable 'latest weights' checkpoint.
+    """Durable 'latest weights' checkpoint, written atomically.
 
-    A hard power cut during a normal ModelCheckpoint write leaves a truncated /
-    zero-byte file (we hit exactly that). Here we write to a temp file, fsync it
-    AND its directory, then os.replace() into place -- an atomic rename, so after
-    any crash `path` is always either the previous complete checkpoint or the new
-    complete one, never a half-written one. Resume with --resume <path>.
+    An interrupted checkpoint write leaves a truncated / zero-byte file. Here we write to
+    a temp file, fsync it AND its directory, then os.replace() into place -- an atomic
+    rename, so `path` is always either the previous complete checkpoint or the new complete
+    one, never a half-written one. Resume with --resume <path>.
     """
     def __init__(self, path):
         super().__init__()
@@ -108,10 +85,6 @@ def main():
     ap.add_argument("--no-augment", action="store_true")
     ap.add_argument("--out", default=str(ROOT / "runs_resnet"))
     ap.add_argument("--smoke", action="store_true", help="one train step to validate the pipeline")
-    ap.add_argument("--throttle", type=float, default=0.0,
-                    help="cap GPU duty cycle: sleep this fraction of each step so the H100 "
-                         "idles between batches (0.6 ~= 62%% duty). Keeps sustained board "
-                         "power under the PSU trip point on this box. 0 = no throttle.")
     args = ap.parse_args()
 
     data_dir = Path(args.data)
@@ -157,18 +130,14 @@ def main():
         tf.keras.callbacks.ModelCheckpoint(str(out / "best.weights.h5"), monitor="val_auc",
                                            mode="max", save_best_only=True,
                                            save_weights_only=True, verbose=1),
-        # crash insurance: dump the LATEST weights every epoch (not just the best),
-        # written ATOMICALLY so a power cut can't leave a truncated file.
+        # dump the LATEST weights every epoch (not just the best), written atomically so an
+        # interrupted run can't leave a truncated file.
         AtomicLastCheckpoint(out / "last.weights.h5"),
         # automatic fault tolerance: BackupAndRestore snapshots model + optimizer + epoch
         # counter after each epoch under out/backup. Re-run the SAME command after a crash
         # and fit() resumes from the next epoch (deletes the backup on clean completion).
         tf.keras.callbacks.BackupAndRestore(backup_dir=str(out / "backup")),
     ]
-    if args.throttle > 0:
-        callbacks.append(Throttle(args.throttle))
-        print(f"THROTTLE ON: sleeping {args.throttle:.0%} of each step "
-              f"(~{1/(1+args.throttle):.0%} GPU duty) to cap sustained power.")
     hist = model.fit(train_ds, validation_data=val_ds, epochs=args.epochs,
                      class_weight=cw, callbacks=callbacks)
 
