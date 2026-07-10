@@ -47,7 +47,7 @@ clean-but-defect-like regions back as **hard negatives**.
 The confident misses are the smallest defects downscaled into a busy frame — a real 40–60 px defect
 becomes ~15 px in the tile and a handful of pixels at 256 train size. The lever is more defect
 signal in-frame (larger input / tighter crop) — which is exactly why **512 more than halves the
-misses** (18 vs. 79 at 256), and why the [resolution analysis](MODEL_REPORT.md#6-resolution--and-why-256-is-not-obsolete)
+misses** (18 vs. 79 at 256), and why the [resolution analysis](MODEL_REPORT.md#7-resolution--and-why-256-is-not-obsolete)
 matters.
 
 ## Practical takeaway

@@ -14,7 +14,8 @@ unusable**: it catches 99.5% of defects while **false-flagging 58% of good patch
 --good-per-plate 250`): one patch per annotated defect placed anywhere in the tile, plus a
 `good` class of clean tiles from the healed plates. Per-(photo, defect) unit split
 (in-distribution). Test = 2585 patches (1110 good + 1475 defects). ResNet-50, 7-way softmax,
-two-phase, input 256.
+two-phase, input 256. **Training wall-time ≈ 16 min** (GPU, two-phase; same order as the 256
+binary models, ~half the 512 binary).
 
 ![The 7 classes](figures/examples_types.png)
 
@@ -49,6 +50,24 @@ Per-class P / R / F1:
 The **dedicated binary gate**, on the same data and placement, reaches **0.984 accuracy / 0.985
 recall** at 512 (0.997 precision at a higher threshold) — see [`MODEL_REPORT.md`](MODEL_REPORT.md).
 The 7-class head throws that away.
+
+### Threshold to minimize false negatives (call GOOD only if P(good) ≥ t)
+
+Since a bad board slipping through is the costly error, we can raise the bar to earn a "good" call.
+The gate is already very FN-averse — but driving misses to **zero** collapses specificity
+(`details/gate7_threshold.json`):
+
+| P(good) ≥ t | defect recall | FN (of 1475) | false-alarm | good passed |
+|---|---|---|---|---|
+| 0.0 (argmax) | 0.9959 | 6 | 57.8% | 468/1110 |
+| 0.5 | 0.9966 | 5 | 64.4% | 395/1110 |
+| **0.90** | **1.000** | **0** | 92.3% | 85/1110 |
+| 0.99 | 1.000 | 0 | 99.7% | 3/1110 |
+
+Zero false negatives is reachable at t ≥ 0.9, but at that point the gate flags **92%** of clean
+boards — it is calling almost everything bad. So even at its most FN-averse, the 7-class gate can't
+do the good/bad job; **use the binary 512 model as the gate** (which reaches recall 0.99 at 6.7%
+false alarms) and keep this head for Stage-2 naming only.
 
 ## Why the good/bad boundary blurs
 - **`good → spurious_copper` (507) and `good → spur` (101)** — clean copper traces read as small

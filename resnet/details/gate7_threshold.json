@@ -1,0 +1,62 @@
+{
+  "weights": "runs_resnet/pcb_types7_offset/best.weights.h5",
+  "n": 2585,
+  "n_good": 1110,
+  "n_bad": 1475,
+  "gate": [
+    {
+      "t": 0.0,
+      "recall": 0.9959,
+      "FN": 6,
+      "FP": 642,
+      "fa_rate": 0.5784,
+      "TN": 468,
+      "good_pass": "468/1110"
+    },
+    {
+      "t": 0.5,
+      "recall": 0.9966,
+      "FN": 5,
+      "FP": 715,
+      "fa_rate": 0.6441,
+      "TN": 395,
+      "good_pass": "395/1110"
+    },
+    {
+      "t": 0.9,
+      "recall": 1.0,
+      "FN": 0,
+      "FP": 1025,
+      "fa_rate": 0.9234,
+      "TN": 85,
+      "good_pass": "85/1110"
+    },
+    {
+      "t": 0.95,
+      "recall": 1.0,
+      "FN": 0,
+      "FP": 1078,
+      "fa_rate": 0.9712,
+      "TN": 32,
+      "good_pass": "32/1110"
+    },
+    {
+      "t": 0.99,
+      "recall": 1.0,
+      "FN": 0,
+      "FP": 1107,
+      "fa_rate": 0.9973,
+      "TN": 3,
+      "good_pass": "3/1110"
+    },
+    {
+      "t": 0.999,
+      "recall": 1.0,
+      "FN": 0,
+      "FP": 1110,
+      "fa_rate": 1.0,
+      "TN": 0,
+      "good_pass": "0/1110"
+    }
+  ]
+}

@@ -51,6 +51,18 @@ Two readings:
 This replicates last week's ~0.97 (256-centered = 0.963) **without** the leak that inflated it,
 and the offset columns are the honest "defect could be anywhere" numbers.
 
+### Training cost (GPU wall-time, two-phase 30+25 epochs)
+
+| model | input | batch | wall-time |
+|---|---|---|---|
+| baseline (256 centered) | 256 | 64 | **~16 min** |
+| 256 offset | 256 | 64 | ~17 min |
+| 512 centered | 512 | 16 | ~36 min |
+| 512 offset (deployment) | 512 | 16 | **~30 min** |
+
+512 costs ~2× the wall-time of 256 (4× the pixels, but the smaller batch offsets some of it).
+Even the slowest ResNet trains in half an hour — cheap next to the YOLO detector's 2 h 28 m.
+
 ---
 
 ## 3. Confusion matrices @ threshold 0.50 (positive = defective)
@@ -88,7 +100,37 @@ a screen. The 512 models miss only 6–18 of 1,184 defects.
 
 ---
 
-## 4. Confidence separation
+## 4. Recall-favoring threshold — minimize false negatives
+
+A **false negative** (a defective patch called good → a bad board shipped) is the expensive error;
+a false positive just sends a good board for a second look. So the operating threshold is dropped
+**below 0.5** to catch more defects, trading false alarms for misses. For each model, the threshold
+that hits a target recall and its false-alarm (FA) cost:
+
+| model | @0.50 (FN / FA) | recall 0.99 (thr, FN, FA) | recall 0.995 (thr, FN, FA) | zero-FN (thr, FA) |
+|---|---|---|---|---|
+| 256 centered | 37 / 5.5% | 0.178 · 12 · 12.5% | 0.116 · 6 · 15.8% | 0.012 · **34.8%** |
+| 256 offset | 79 / 11.2% | 0.089 · 12 · **60.3%** | 0.038 · 6 · **70.5%** | 0.002 · **90.6%** |
+| 512 centered | 6 / 0.6% | — (already <0.99 FN) | 0.61 · 6 · 0.3% | 0.025 · **18.6%** |
+| **512 offset** (deployment) | 18 / 2.8% | **0.366 · 12 · 6.7%** | 0.176 · 6 · 27.6% | 0.018 · **79.2%** |
+
+**The headline is that biasing toward recall is cheap at 512 and ruinous at 256.**
+
+- **512 offset (deployment): set the threshold to ≈ 0.37.** It cuts misses from 18 → 12 (recall
+  0.99) at only **6.7%** false alarms. Pushing to 6 misses (recall 0.995) costs 27.6% FA — a real
+  knee, so 0.37 is the recommended recall-favoring point; go to 0.18 only if a missed defect is
+  catastrophic and 1-in-4 re-inspections are acceptable.
+- **512 centered** is best-behaved — you can eliminate *every* miss (zero FN) for 18.6% FA.
+- **256 offset must not be used where misses matter:** catching 99% of defects there floods the
+  line with **60% false alarms**. This is the strongest argument yet for **512 in deployment** —
+  higher resolution is what makes an aggressive, FN-averse threshold affordable.
+
+*(Patch-level; a defective board is caught if any of its patches fire, so board-level recall is
+higher than these per-patch numbers.)* Source: `resnet/details/threshold_pick.json`.
+
+---
+
+## 5. Confidence separation
 
 Mean `P(defective)` on good vs. defective patches, and how many land in the contested 0.1–0.9 band
 (the only region where errors occur):
@@ -120,7 +162,7 @@ borderline misses (more false alarms) or toward 0.7 to cut false alarms (barely 
 
 ---
 
-## 5. Placement robustness — defects anywhere
+## 6. Placement robustness — defects anywhere
 
 ![position: centered vs offset](figures/g4_position.png)
 
@@ -132,7 +174,7 @@ the deployment-relevant numbers. Example tiles with the defect at varying positi
 
 ---
 
-## 6. Resolution — and why 256 is *not* obsolete
+## 7. Resolution — and why 256 is *not* obsolete
 
 ![resolution: 256 vs 512](figures/g3_resolution.png)
 
@@ -156,7 +198,7 @@ nuisances (noise, exposure, blur, shift, rotation):
 
 ---
 
-## 7. A note on the split (honest, in-distribution)
+## 8. A note on the split (honest, in-distribution)
 
 The split is per-(photo, defect) **unit** holdout — all 10 board designs appear in every split, so
 this measures performance on **boards the model has seen**, matching the fixed-production-line
