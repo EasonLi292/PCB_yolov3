@@ -1,0 +1,52 @@
+----- score=0.10 -----
+== BOARD-LEVEL good/bad @ score 0.1 ==
+                pred good   pred bad
+  defective          202       1084   (recall 0.843)
+  good                10          0   (false-alarm 0.000)
+
+accuracy            : 0.844
+precision (bad)     : 1.000
+recall (defects)    : 0.843   <- fraction of defective boards caught
+false-alarm rate    : 0.000  <- fraction of GOOD boards wrongly flagged
+good boards passed  : 10/10
+
+Compare these board-level numbers with resnet/MODEL_REPORT.md (sweep --score to trade recall vs false alarms).
+----- score=0.25 -----
+== BOARD-LEVEL good/bad @ score 0.25 ==
+                pred good   pred bad
+  defective          366        920   (recall 0.715)
+  good                10          0   (false-alarm 0.000)
+
+accuracy            : 0.718
+precision (bad)     : 1.000
+recall (defects)    : 0.715   <- fraction of defective boards caught
+false-alarm rate    : 0.000  <- fraction of GOOD boards wrongly flagged
+good boards passed  : 10/10
+
+Compare these board-level numbers with resnet/MODEL_REPORT.md (sweep --score to trade recall vs false alarms).
+----- score=0.40 -----
+== BOARD-LEVEL good/bad @ score 0.4 ==
+                pred good   pred bad
+  defective          528        758   (recall 0.589)
+  good                10          0   (false-alarm 0.000)
+
+accuracy            : 0.593
+precision (bad)     : 1.000
+recall (defects)    : 0.589   <- fraction of defective boards caught
+false-alarm rate    : 0.000  <- fraction of GOOD boards wrongly flagged
+good boards passed  : 10/10
+
+Compare these board-level numbers with resnet/MODEL_REPORT.md (sweep --score to trade recall vs false alarms).
+----- score=0.60 -----
+== BOARD-LEVEL good/bad @ score 0.6 ==
+                pred good   pred bad
+  defective          755        531   (recall 0.413)
+  good                10          0   (false-alarm 0.000)
+
+accuracy            : 0.417
+precision (bad)     : 1.000
+recall (defects)    : 0.413   <- fraction of defective boards caught
+false-alarm rate    : 0.000  <- fraction of GOOD boards wrongly flagged
+good boards passed  : 10/10
+
+Compare these board-level numbers with resnet/MODEL_REPORT.md (sweep --score to trade recall vs false alarms).

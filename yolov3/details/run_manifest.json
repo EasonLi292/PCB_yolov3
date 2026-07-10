@@ -1,0 +1,28 @@
+{
+  "task": "yolov3_detection",
+  "model": "yolov3_darknet53",
+  "weights": "yolov3_best.weights.h5",
+  "saved_model": "saved_model",
+  "classes": [
+    "missing_hole",
+    "mouse_bite",
+    "open_circuit",
+    "short",
+    "spur",
+    "spurious_copper"
+  ],
+  "dataset": "/home/ubuntu-eason/Downloads/PCB_yolov3/datasets/unified_pku_yolo_gray640",
+  "dataset_name": "unified_pku_yolo_gray640",
+  "size": 640,
+  "batch": 16,
+  "epochs": 60,
+  "lr": 0.0001,
+  "phase": "unfrozen (full fine-tune)",
+  "resumed_from": "runs/unified_pku_yolo_gray640/yolov3_best.weights.h5",
+  "augment": true,
+  "n_train": 12084,
+  "n_val": 1294,
+  "note": "re-test: export IR (yolov3/export_fpga.py) then analyze_openvino.py / board_level_eval.py on --data datasets/unified_pku_yolo_gray640",
+  "git_commit": "044d7fc",
+  "created": "2026-07-09T19:26:32"
+}

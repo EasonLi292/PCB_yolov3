@@ -189,11 +189,14 @@ reproduces 0/10 exactly.
 | **Exposure safe to ±10%, rotation matters more than expected** | gain ±10%: 0% · rotation 0.5°: 12% |
 | **Realistic single frame** (all nuisances, moderate) | **3.7% @0.10, 2.5% @0.25** |
 
-**Operating-point recommendation: score 0.25, not 0.10.** Under realistic noise, 0.25 roughly
-halves the false alarms (σ5: 6%→0%; realistic frame 3.7%→2.5%) while still catching 71% of
-defective boards (84% on multi-defect boards like HRIPCB). The cliff is at read-noise **σ≈10** —
-keep the imaging rig under σ5 and clean-board false alarms stay near zero. This is a concrete
-**spec for the camera**, mirroring the ResNet nuisance finding.
+**How this squares with the score-0.05 recommendation (§3): it's conditional on sensor noise.**
+On the low-noise rig this analysis specs (**read noise σ<5**), clean-board false alarms stay near
+zero even at 0.05, so 0.05 is the right operating point — max recall at ~0 false alarms. The cliff
+is at **σ≈10**, where a low score starts hallucinating defects on clean copper (σ10: 31% @0.10). So
+the rule is: **σ<5 → score 0.05; a noisier sensor → raise the score toward 0.10–0.25** to suppress
+noise-induced false alarms (0.25 roughly halves them: realistic frame 3.7%→2.5%). The camera's read
+noise, not the threshold alone, sets how aggressively you can chase recall — a concrete **spec for
+the imaging rig**, mirroring the ResNet nuisance finding.
 
 *Caveat: these are 10 plates re-imaged many ways — robustness indicators, not a population
 false-alarm rate. A true rate needs more physically-distinct clean boards.*
@@ -202,12 +205,13 @@ false-alarm rate. A true rate needs more physically-distinct clean boards.*
 
 ## Artifacts & reproduce
 
-- weights + manifest + IR: `runs/unified_pku_yolo_gray640/` (gitignored; zipped to
-  `runs_yolov3_unified_gray640.zip`, 1.2 GB) — `yolov3_best.weights.h5`, `saved_model/`,
-  `openvino_fpga/yolov3_fpga_fp32.xml`+`.bin`, `run_manifest.json`.
+- **result data (in the repo):** [`yolov3/details/`](details/) — `eval_map.txt` (mAP + per-class AP),
+  `eval_board_indomain.txt`, `eval_board_deeppcb.txt`, `board_lowscore_sweep.txt` (the 0.02–0.25
+  board sweep behind §3), `clean_board_stress.json` (§4), `run_manifest.json` (config/provenance).
 - anchors: `yolov3/anchors.json` (k-means, mean IoU 0.774).
-- evals: `eval_map.txt`, `eval_board_indomain.txt`, `eval_board_deeppcb.txt`,
-  `clean_board_stress.json`.
+- weights + IR (too large for git): `runs/unified_pku_yolo_gray640/` (gitignored; zipped to
+  `runs_yolov3_unified_gray640.zip`, 1.2 GB) — `yolov3_best.weights.h5`, `saved_model/`,
+  `openvino_fpga/yolov3_fpga_fp32.xml`+`.bin`.
 
 ```bash
 # detection mAP

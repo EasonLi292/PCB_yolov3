@@ -1,0 +1,12 @@
+== BOARD-LEVEL good/bad @ score 0.25 ==
+                pred good   pred bad
+  defective          366        920   (recall 0.715)
+  good              1363        138   (false-alarm 0.092)
+
+accuracy            : 0.819
+precision (bad)     : 0.870
+recall (defects)    : 0.715   <- fraction of defective boards caught
+false-alarm rate    : 0.092  <- fraction of GOOD boards wrongly flagged
+good boards passed  : 1363/1501
+
+Compare these board-level numbers with resnet/MODEL_REPORT.md (sweep --score to trade recall vs false alarms).

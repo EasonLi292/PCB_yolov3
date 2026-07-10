@@ -1,0 +1,340 @@
+{
+  "ir": "runs/unified_pku_yolo_gray640/openvino_fpga/yolov3_fpga_fp32.xml",
+  "n_plates": 10,
+  "reps": 8,
+  "sweeps": {
+    "noise (sigma gray levels)": [
+      {
+        "magnitude": 0,
+        "presentations": 10,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 2,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.05,
+          "0.25": 0.0125
+        },
+        "flagged": {
+          "0.10": 4,
+          "0.25": 1
+        }
+      },
+      {
+        "magnitude": 5,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0625,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 5,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 10,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.3125,
+          "0.25": 0.125
+        },
+        "flagged": {
+          "0.10": 25,
+          "0.25": 10
+        }
+      },
+      {
+        "magnitude": 15,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.4,
+          "0.25": 0.1875
+        },
+        "flagged": {
+          "0.10": 32,
+          "0.25": 15
+        }
+      },
+      {
+        "magnitude": 20,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.425,
+          "0.25": 0.1125
+        },
+        "flagged": {
+          "0.10": 34,
+          "0.25": 9
+        }
+      }
+    ],
+    "gain (exposure drift)": [
+      {
+        "magnitude": 0.0,
+        "presentations": 10,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 0.05,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 0.1,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 0.2,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.05,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 4,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 0.3,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.075,
+          "0.25": 0.075
+        },
+        "flagged": {
+          "0.10": 6,
+          "0.25": 6
+        }
+      }
+    ],
+    "blur (gaussian sigma px)": [
+      {
+        "magnitude": 0,
+        "presentations": 10,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 0.5,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 1.0,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 1.5,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 2.0,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      }
+    ],
+    "shift (px registration)": [
+      {
+        "magnitude": 0,
+        "presentations": 10,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 1,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0125,
+          "0.25": 0.0125
+        },
+        "flagged": {
+          "0.10": 1,
+          "0.25": 1
+        }
+      },
+      {
+        "magnitude": 2,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 4,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0375,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 3,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 8,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.1375,
+          "0.25": 0.075
+        },
+        "flagged": {
+          "0.10": 11,
+          "0.25": 6
+        }
+      }
+    ],
+    "rotation (degrees)": [
+      {
+        "magnitude": 0,
+        "presentations": 10,
+        "flag_rate": {
+          "0.10": 0.0,
+          "0.25": 0.0
+        },
+        "flagged": {
+          "0.10": 0,
+          "0.25": 0
+        }
+      },
+      {
+        "magnitude": 0.5,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.125,
+          "0.25": 0.125
+        },
+        "flagged": {
+          "0.10": 10,
+          "0.25": 10
+        }
+      },
+      {
+        "magnitude": 1.0,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.1125,
+          "0.25": 0.0875
+        },
+        "flagged": {
+          "0.10": 9,
+          "0.25": 7
+        }
+      },
+      {
+        "magnitude": 2.0,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.1625,
+          "0.25": 0.075
+        },
+        "flagged": {
+          "0.10": 13,
+          "0.25": 6
+        }
+      },
+      {
+        "magnitude": 4.0,
+        "presentations": 80,
+        "flag_rate": {
+          "0.10": 0.0625,
+          "0.25": 0.0625
+        },
+        "flagged": {
+          "0.10": 5,
+          "0.25": 5
+        }
+      }
+    ]
+  },
+  "combined_realistic": {
+    "presentations": 80,
+    "flag_rate": {
+      "0.10": 0.0375,
+      "0.25": 0.025
+    },
+    "flagged": {
+      "0.10": 3,
+      "0.25": 2
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# Board-level good/bad at low detection scores (backs the score-0.05 recommendation in MODEL_REPORT.md §3)
+# defective = 1286 PKU test boards; in-domain good = 10 healed clean plates; out-of-domain good = 1501 DeepPCB templates
+# board = BAD if >=1 detection above the score threshold. Measured via board_level_eval.py on the FPGA IR.
+
+## IN-DOMAIN (good = 10 clean plates)
+ score   recall   defective(good/bad)   good(pass/flag)   false-alarm
+ 0.02    0.943    73 / 1213             9 / 1             0.100  (1 plate flagged)
+ 0.05    0.900    129 / 1157            10 / 0            0.000
+ 0.10    0.843    202 / 1084            10 / 0            0.000
+ 0.25    0.715    366 / 920             10 / 0            0.000   (mAP default)
+ 0.40    0.589    528 / 758             10 / 0            0.000
+ 0.60    0.413    755 / 531             10 / 0            0.000
+
+## OUT-OF-DOMAIN (good = 1501 DeepPCB templates, B&W) -- accuracy is meaningful here
+ score   recall   accuracy   false-alarm   good(pass/flag)
+ 0.05    0.900    0.840      0.212         1183 / 318
+ 0.10    0.843    0.842      0.159         1262 / 239
+ 0.25    0.715    0.819      0.092         1363 / 138
+
+# Takeaway: 0.10 -> 0.05 gains +0.057 recall for -0.002 accuracy (0.842 -> 0.840) at 0 in-domain
+# false alarms; below 0.05 the trade inverts (0.02 flags a clean plate, DeepPCB FA climbs). 0.05 = knee.
