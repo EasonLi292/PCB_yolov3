@@ -66,8 +66,9 @@ The gate is already very FN-averse — but driving misses to **zero** collapses 
 
 Zero false negatives is reachable at t ≥ 0.9, but at that point the gate flags **92%** of clean
 boards — it is calling almost everything bad. So even at its most FN-averse, the 7-class gate can't
-do the good/bad job; **use the binary 512 model as the gate** (which reaches recall 0.99 at 6.7%
-false alarms) and keep this head for Stage-2 naming only.
+do the good/bad job; **use the binary 512 model as the gate** (recall 0.985 at ~3% false alarms
+near its balanced threshold — see [`MODEL_REPORT.md` §4](MODEL_REPORT.md)) and keep this head for
+Stage-2 naming only.
 
 ## Why the good/bad boundary blurs
 - **`good → spurious_copper` (507) and `good → spur` (101)** — clean copper traces read as small

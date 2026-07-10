@@ -100,33 +100,37 @@ a screen. The 512 models miss only 6–18 of 1,184 defects.
 
 ---
 
-## 4. Recall-favoring threshold — minimize false negatives
+## 4. Operating threshold — recall-leaning, but accuracy still high
 
-A **false negative** (a defective patch called good → a bad board shipped) is the expensive error;
-a false positive just sends a good board for a second look. So the operating threshold is dropped
-**below 0.5** to catch more defects, trading false alarms for misses. For each model, the threshold
-that hits a target recall and its false-alarm (FA) cost:
+A missed defect (FN → a bad board shipped) is the expensive error, so we lean the threshold toward
+recall — but only as far as keeps overall accuracy high. The principled point for "recall matters
+more than precision, but both count" is the **F2-optimal** threshold (F2 weights recall 2× vs.
+precision). Chasing an arbitrary recall target (e.g. 0.99) instead is a mistake: on these models it
+buys a sliver of recall for a large accuracy hit.
 
-| model | @0.50 (FN / FA) | recall 0.99 (thr, FN, FA) | recall 0.995 (thr, FN, FA) | zero-FN (thr, FA) |
-|---|---|---|---|---|
-| 256 centered | 37 / 5.5% | 0.178 · 12 · 12.5% | 0.116 · 6 · 15.8% | 0.012 · **34.8%** |
-| 256 offset | 79 / 11.2% | 0.089 · 12 · **60.3%** | 0.038 · 6 · **70.5%** | 0.002 · **90.6%** |
-| 512 centered | 6 / 0.6% | — (already <0.99 FN) | 0.61 · 6 · 0.3% | 0.025 · **18.6%** |
-| **512 offset** (deployment) | 18 / 2.8% | **0.366 · 12 · 6.7%** | 0.176 · 6 · 27.6% | 0.018 · **79.2%** |
+| model | @0.50 (recall / acc) | **F2-optimal** (thr, recall, acc, FA) |
+|---|---|---|
+| 256 centered | 0.969 / 0.957 | **0.34 · 0.982 · 0.953 · 7.8%** |
+| 256 offset | 0.933 / 0.912 | 0.49 · 0.938 · 0.907 · 12.6% |
+| 512 centered | 0.995 / 0.994 | 0.60 · 0.995 · 0.996 · 0.4% |
+| **512 offset** (deployment) | 0.985 / 0.979 | **0.48 · 0.986 · 0.978 · 3.1%** |
 
-**The headline is that biasing toward recall is cheap at 512 and ruinous at 256.**
+**The key result: for the 512 models the balanced optimum is essentially 0.5 already.** They are so
+well-separated that the default threshold gives *both* great recall (0.985–0.995) and high accuracy
+(0.978–0.996) — the F2 optimum barely moves it (to 0.48–0.60). So the recommendation is simply:
 
-- **512 offset (deployment): set the threshold to ≈ 0.37.** It cuts misses from 18 → 12 (recall
-  0.99) at only **6.7%** false alarms. Pushing to 6 misses (recall 0.995) costs 27.6% FA — a real
-  knee, so 0.37 is the recommended recall-favoring point; go to 0.18 only if a missed defect is
-  catastrophic and 1-in-4 re-inspections are acceptable.
-- **512 centered** is best-behaved — you can eliminate *every* miss (zero FN) for 18.6% FA.
-- **256 offset must not be used where misses matter:** catching 99% of defects there floods the
-  line with **60% false alarms**. This is the strongest argument yet for **512 in deployment** —
-  higher resolution is what makes an aggressive, FN-averse threshold affordable.
+- **512 offset (deployment): keep the threshold at ≈ 0.48–0.50** → recall **0.986**, accuracy
+  **0.978** (17–18 of 1,184 defects missed, ~3% false alarms). That *is* the "recall great,
+  accuracy high" point; do **not** push lower — dropping to 0.37 would gain only ~0.005 recall while
+  costing ~2 points of accuracy, and forcing zero misses costs **79%** false alarms.
+- **256 centered: nudge to 0.34** — the one model that benefits, lifting recall 0.969 → **0.982**
+  for a negligible 0.4-point accuracy change.
+- **256 offset stays at ~0.5** and remains the weakest model (accuracy only ~0.91); if misses
+  matter, use 512, whose resolution is what buys recall *and* accuracy at once.
 
-*(Patch-level; a defective board is caught if any of its patches fire, so board-level recall is
-higher than these per-patch numbers.)* Source: `resnet/details/threshold_pick.json`.
+*(Patch-level; a defective board is caught if any of its patches fire, so board-level recall runs
+higher than these per-patch numbers.)* Source: `resnet/details/balanced_threshold.json` (F2 sweep)
+and `threshold_pick.json` (recall-target detail).
 
 ---
 

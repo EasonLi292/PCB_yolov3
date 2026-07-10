@@ -95,11 +95,23 @@ detector to a screen: **board = BAD if ≥1 detection above the score threshold.
 = the 1,286 test images; good boards = the 10 healed HRIPCB clean plates (in-domain) and 1,501
 DeepPCB templates (out-of-domain, B&W).
 
-### Recommended operating point — score 0.05 (minimize false negatives)
+### Recommended operating point — score 0.05 (recall high, accuracy still high)
 
-A missed defective board (FN) is the costly error, so the score threshold is dropped well below the
-0.25 default. **Score 0.05 is the recommended FN-averse point:** it lifts board recall from 0.715 to
-**0.900** while still flagging **0 of 10** in-domain clean plates.
+Lowering the score threshold trades false alarms for missed boards. **Score 0.05 is the balanced
+sweet spot — it lifts recall *without* costing accuracy.** On the large out-of-domain DeepPCB set
+(1,286 defective + 1,501 good, so accuracy is meaningful), accuracy is essentially at its peak at
+0.05, while recall is much higher than at the mAP-default 0.25:
+
+| score | board recall | accuracy (DeepPCB) | in-domain false alarm |
+|---|---|---|---|
+| 0.25 (mAP default) | 0.715 | 0.819 | 0/10 |
+| 0.10 | 0.843 | **0.842** (peak) | 0/10 |
+| **0.05** (recommended) | **0.900** | 0.840 | 0/10 |
+| 0.02 | 0.943 | (lower, FA climbs) | 1/10 |
+
+Going 0.10 → 0.05 gains **+0.057 recall for −0.002 accuracy** — a free recall boost. Below 0.05 the
+trade inverts (0.02 starts false-flagging clean plates and drops accuracy). So 0.05 is the knee:
+near-max recall at peak accuracy and zero observed in-domain false alarms.
 
 > Caveat from §4: a lower score is more sensitive to sensor noise on a clean board. The stress
 > test's clean-board false-alarm numbers were measured at 0.10/0.25; at 0.05 they rise. So 0.05

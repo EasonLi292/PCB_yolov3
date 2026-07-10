@@ -70,8 +70,8 @@ center-band** — a defect landing anywhere in a 512 tile is caught ≥96%, so w
 the full tile (minus a small overlap) rather than tightened to keep defects central. The
 resolution gap, not position, is what separates 256 from 512, which is consistent with
 [MODEL_REPORT.md §7](MODEL_REPORT.md#7-resolution--and-why-256-is-not-obsolete) and with the
-recall-favoring threshold analysis ([§4](MODEL_REPORT.md#4-recall-favoring-threshold--minimize-false-negatives)):
-at 512 you can bias hard toward recall cheaply, at any offset.
+operating-threshold analysis ([§4](MODEL_REPORT.md#4-operating-threshold--recall-leaning-but-accuracy-still-high)):
+at 512 the default threshold already gives great recall at any offset.
 
 ## What to save (so this needs no re-run later)
 Per the repo convention ([EXPERIMENTS.md](../EXPERIMENTS.md)):
