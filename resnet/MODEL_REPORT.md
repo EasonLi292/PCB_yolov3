@@ -103,10 +103,11 @@ a screen. The 512 models miss only 6–18 of 1,184 defects.
 ## 4. Operating threshold — recall-leaning, but accuracy still high
 
 A missed defect (FN → a bad board shipped) is the expensive error, so we lean the threshold toward
-recall — but only as far as keeps overall accuracy high. The principled point for "recall matters
+recall — but only as far as keeps overall accuracy high. The reference point for "recall matters
 more than precision, but both count" is the **F2-optimal** threshold (F2 weights recall 2× vs.
-precision). Chasing an arbitrary recall target (e.g. 0.99) instead is a mistake: on these models it
-buys a sliver of recall for a large accuracy hit.
+precision); from there we push a little further toward recall where it's cheap. The key is that the
+accuracy cost of extra recall is **per-model**: cheap on the well-separated 512 models, expensive on
+256 — so the right threshold is not one number but a check of what each point costs.
 
 | model | @0.50 (recall / acc) | **F2-optimal** (thr, recall, acc, FA) |
 |---|---|---|
@@ -115,18 +116,27 @@ buys a sliver of recall for a large accuracy hit.
 | 512 centered | 0.995 / 0.994 | 0.60 · 0.995 · 0.996 · 0.4% |
 | **512 offset** (deployment) | 0.985 / 0.979 | **0.48 · 0.986 · 0.978 · 3.1%** |
 
-**The key result: for the 512 models the balanced optimum is essentially 0.5 already.** They are so
-well-separated that the default threshold gives *both* great recall (0.985–0.995) and high accuracy
-(0.978–0.996) — the F2 optimum barely moves it (to 0.48–0.60). So the recommendation is simply:
+The F2 optimum sits near 0.5 for the well-separated 512 models. We then **lean a little further
+toward recall** (a deliberate choice to catch more defects), landing on these operating points:
 
-- **512 offset (deployment): keep the threshold at ≈ 0.48–0.50** → recall **0.986**, accuracy
-  **0.978** (17–18 of 1,184 defects missed, ~3% false alarms). That *is* the "recall great,
-  accuracy high" point; do **not** push lower — dropping to 0.37 would gain only ~0.005 recall while
-  costing ~2 points of accuracy, and forcing zero misses costs **79%** false alarms.
-- **256 centered: nudge to 0.34** — the one model that benefits, lifting recall 0.969 → **0.982**
-  for a negligible 0.4-point accuracy change.
-- **256 offset stays at ~0.5** and remains the weakest model (accuracy only ~0.91); if misses
-  matter, use 512, whose resolution is what buys recall *and* accuracy at once.
+| model | F2-optimal | **chosen (recall-leaning)** | recall / accuracy | misses (of 1,184) |
+|---|---|---|---|---|
+| **512 offset** (deployment) | 0.48 | **0.37** | **0.989 / 0.963** | 13 |
+| 256 offset | 0.49 | **0.40** | 0.949 / 0.875 | 61 |
+| 256 centered | 0.34 | 0.34 | 0.982 / 0.953 | 21 |
+| 512 centered | 0.60 | 0.50 | 0.995 / 0.994 | 6 |
+
+- **512 offset (deployment): threshold 0.37** → recall **0.989**, accuracy **0.963** (only 13 of
+  1,184 defects missed, 6.5% false alarms). The recall boost over the F2 point (0.986→0.989) costs
+  just ~1.5 points of accuracy — cheap, because the model is well-separated. Going further to zero
+  misses still costs 79% false alarms, so 0.37 is a sensible recall-leaning stopping point.
+- **256 offset: threshold 0.40** → recall **0.949**, accuracy **0.875**. The same-size recall push
+  costs 256 more than twice the accuracy (resolution makes recall expensive here) and drives false
+  alarms to 20% — another reason 512 is the deployment choice.
+- **256 centered: 0.34** (recall 0.982) and **512 centered: 0.50** (recall 0.995) are already at
+  their recall-leaning sweet spots.
+
+Full confusion matrices at these points: [`CONFUSION_OPTIMAL_REPORT.md`](CONFUSION_OPTIMAL_REPORT.md).
 
 *(Patch-level; a defective board is caught if any of its patches fire, so board-level recall runs
 higher than these per-patch numbers.)* Source: `resnet/details/balanced_threshold.json` (F2 sweep)
@@ -226,6 +236,8 @@ python resnet/eval_resnet.py --weights runs_resnet_v3/pcb_bin_offset_512/best.we
 python resnet/nuisance_sweep.py --weights <weights> --data <data> --size <256|512>
 ```
 
-Companion docs: [`CONFIDENCE_REPORT.md`](CONFIDENCE_REPORT.md) (score distributions),
-[`MODEL_REPORT_7CLASS.md`](MODEL_REPORT_7CLASS.md) (defect-type namer),
-[`RESOLUTION_REPORT.md`](RESOLUTION_REPORT.md) / [`POSITION_REPORT.md`](POSITION_REPORT.md).
+Companion docs: [`CONFUSION_OPTIMAL_REPORT.md`](CONFUSION_OPTIMAL_REPORT.md) (confusion matrices at
+the optimal threshold — all models), [`CONFIDENCE_REPORT.md`](CONFIDENCE_REPORT.md) (score
+distributions), [`MODEL_REPORT_7CLASS.md`](MODEL_REPORT_7CLASS.md) (defect-type namer),
+[`RESOLUTION_REPORT.md`](RESOLUTION_REPORT.md) / [`POSITION_REPORT.md`](POSITION_REPORT.md) /
+[`POSITION_STRATIFIED_REPORT.md`](POSITION_STRATIFIED_REPORT.md).
