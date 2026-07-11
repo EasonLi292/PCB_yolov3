@@ -118,18 +118,26 @@ near-max recall at peak accuracy and zero observed in-domain false alarms.
 > assumes the low-noise rig §4 recommends (read noise σ<5). On a noisier sensor, keep the score at
 > 0.10 or drive the noise down — do not chase recall with the threshold on a noisy camera.
 
-**Confusion matrix @ score 0.05 (in-domain good = 10 clean plates)**
+**Confusion matrix @ score 0.05 — augmented good set (10 plates → 1,280 presentations)**
+
+10 clean plates can't bound a false-alarm rate, so — exactly like the ResNet good set is large —
+the plates are turned into **1,280 realistic-imaging presentations** and the 1,286 defective boards
+each get one augmented draw, so both sides are scored under matched imaging
+(`yolov3/confusion_augmented.py`).
 
 |                | pred good | pred bad |
 |----------------|-----------|----------|
-| **actual good** | 10 (TN) | 0 (FP) |
-| **actual bad**  | 129 (FN) | 1157 (TP) |
+| **actual good** | 1193 (TN) | 87 (FP) |
+| **actual bad**  | 92 (FN)   | 1194 (TP) |
 
-| metric | value |
-|---|---|
-| defect recall (board caught) | **0.900** |
-| false-alarm rate (in-domain, 10 plates) | **0.000** (0/10) |
-| precision (bad) | 1.000 |
+recall **0.928** · false-alarm **6.8%** · accuracy **0.930** · precision 0.932
+
+![augmented confusion](figures/yolo_confusion_augmented.png)
+
+Now the false-alarm rate is **measurable — 6.8%** at the operating point (not the uninformative
+0/10), dropping to 3.9% at score 0.10 and 1.6% at 0.25. The 0.10 figure matches the independent
+clean-board stress test (§4, 3.7%). Full numbers in the confusion report:
+[`resnet/CONFUSION_OPTIMAL_REPORT.md` §2](../resnet/CONFUSION_OPTIMAL_REPORT.md).
 
 ### Score sweep — the recall / false-alarm trade
 
@@ -207,7 +215,8 @@ false-alarm rate. A true rate needs more physically-distinct clean boards.*
 
 - **result data (in the repo):** [`yolov3/details/`](details/) — `eval_map.txt` (mAP + per-class AP),
   `eval_board_indomain.txt`, `eval_board_deeppcb.txt`, `board_lowscore_sweep.txt` (the 0.02–0.25
-  board sweep behind §3), `clean_board_stress.json` (§4), `run_manifest.json` (config/provenance).
+  board sweep behind §3), `confusion_augmented.json` (augmented-good board confusion, §3),
+  `clean_board_stress.json` (§4), `run_manifest.json` (config/provenance).
 - anchors: `yolov3/anchors.json` (k-means, mean IoU 0.774).
 - weights + IR (too large for git): `runs/unified_pku_yolo_gray640/` (gitignored; zipped to
   `runs_yolov3_unified_gray640.zip`, 1.2 GB) — `yolov3_best.weights.h5`, `saved_model/`,

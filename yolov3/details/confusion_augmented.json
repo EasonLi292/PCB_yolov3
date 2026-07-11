@@ -1,0 +1,39 @@
+{
+  "ir": "runs/unified_pku_yolo_gray640/openvino_fpga/yolov3_fpga_fp32.xml",
+  "n_defective": 1286,
+  "n_good_augmented": 1280,
+  "good_plates": 10,
+  "good_reps": 128,
+  "by_score": {
+    "0.05": {
+      "TP": 1194,
+      "FN": 92,
+      "FP": 87,
+      "TN": 1193,
+      "recall": 0.9285,
+      "false_alarm": 0.068,
+      "accuracy": 0.9302,
+      "precision": 0.9321
+    },
+    "0.10": {
+      "TP": 1139,
+      "FN": 147,
+      "FP": 50,
+      "TN": 1230,
+      "recall": 0.8857,
+      "false_alarm": 0.0391,
+      "accuracy": 0.9232,
+      "precision": 0.9579
+    },
+    "0.25": {
+      "TP": 1004,
+      "FN": 282,
+      "FP": 20,
+      "TN": 1260,
+      "recall": 0.7807,
+      "false_alarm": 0.0156,
+      "accuracy": 0.8823,
+      "precision": 0.9805
+    }
+  }
+}
