@@ -43,9 +43,17 @@ def build_savedmodel_subprocess(weights, size, sm_dir):
 
 
 def convert_fp32(sm_dir, size, xml_out):
+    """SavedModel -> genuinely FP32 IR.
+
+    ov.save_model() defaults to compress_to_fp16=True, which silently halves the weight
+    precision. On this classifier that drifts P(defective) by up to ~0.03 -- enough to flip
+    patches that sit near the 0.5 decision threshold. Keep FP32 so the IR is numerically
+    faithful to TF (max|diff| ~1e-6); the AI Suite compiler does its own calibration for the
+    DLA anyway.
+    """
     import openvino as ov
     ov_model = ov.convert_model(str(sm_dir), input=[[1, size, size, 3]])
-    ov.save_model(ov_model, str(xml_out))
+    ov.save_model(ov_model, str(xml_out), compress_to_fp16=False)
     return xml_out
 
 

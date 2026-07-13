@@ -32,3 +32,5 @@ release_resnet/*
 
 # model weights (large binaries) anywhere
 *.h5
+release_resnet_512/*
+!release_resnet_512/README.md
