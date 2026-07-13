@@ -1,0 +1,30 @@
+# CONFIRMATION RE-RUN of the chosen deployment model (512x512, offset-trained)
+# weights: runs_resnet_v3/pcb_bin_offset_512/best.weights.h5  (md5 fb6bf9ada93f0a78...)
+# data:    datasets/pcb_bin_offset (test = 2294 patches: 1110 good / 1184 defective)
+# command: python resnet/eval_resnet.py --weights <w> --data datasets/pcb_bin_offset --size 512 --threshold 0.37
+# run via the repo's own eval_resnet.py (independent code path from the scorer that
+# produced the numbers in CONFUSION_OPTIMAL_REPORT.md) -- matrix reproduced EXACTLY.
+
+test: 2294 images  {'good': 1110, 'bad': 1184}
+
+== Confusion matrix @ threshold 0.37  (positive = defective) ==
+               pred good   pred bad
+  actual good      1038         72
+  actual bad         13       1171
+
+accuracy            : 0.963
+precision (defect)  : 0.942
+recall    (defect)  : 0.989   <- fraction of bad boards caught
+F1        (defect)  : 0.965
+ROC-AUC             : 0.996
+PR-AUC  (defect)    : 0.997
+
+== threshold sweep ==
+  thr   acc   prec   recall
+  0.2  0.881  0.817  0.992
+  0.3  0.940  0.902  0.991
+  0.4  0.968  0.951  0.988
+  0.5  0.979  0.974  0.985
+  0.6  0.981  0.985  0.979
+  0.7  0.983  0.992  0.974
+  0.8  0.984  0.997  0.972

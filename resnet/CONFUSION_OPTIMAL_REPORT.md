@@ -34,14 +34,19 @@ presentations (10 healed plates × 128 realistic-imaging draws — see §2).
 
 recall **0.949** · accuracy **0.875** · precision 0.833 · false-alarm 20.4%
 
-### 512-offset @ threshold 0.37  (deployment, recall-leaning)
+### 512-offset @ threshold 0.37  — ✅ **CHOSEN DEPLOYMENT MODEL** (independently re-verified)
 
 |                | pred good | pred bad |
 |----------------|-----------|----------|
 | **actual good** | 1038 (TN) | 72 (FP) |
 | **actual bad**  | 13 (FN)   | 1171 (TP) |
 
-recall **0.989** · accuracy **0.963** · precision 0.942 · false-alarm 6.5%
+recall **0.989** · accuracy **0.963** · precision 0.942 · F1 0.965 · ROC-AUC 0.996 · false-alarm 6.5%
+
+**Confirmed by a re-run through the repo's own `eval_resnet.py`** — a different code path from the
+scorer that produced these numbers — and the matrix reproduced **exactly, cell for cell**
+(`details/eval_512_offset_thr037_CONFIRMED.txt`). Of 1,184 defective patches it misses **13**
+(1.1%); of 1,110 clean patches it false-alarms on 72 (6.5%).
 
 **These are pushed below the F2-optimum (0.48/0.49) to lift recall** — the asymmetry is the whole
 story. At 512 the boost is nearly free: recall 0.986→**0.989** (17→13 misses) costs only 1.5 points
